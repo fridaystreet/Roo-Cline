@@ -22,28 +22,28 @@ describe('CodyHandler', () => {
 
         const generator = handler.createMessage(systemPrompt, messages)
         const chunks = []
-        let fullResponse = ''
+        let lastChunk = ''
         
         try {
-            // Collect first 5 chunks to see more of the response
-            let chunkCount = 0
+            // Collect chunks until we get a complete response
             for await (const chunk of generator) {
-                chunks.push(chunk)
-                console.log('Received chunk from API:', chunk)
-                
-                if (chunk.type === 'text') {
-                    fullResponse += chunk.text
+                if (chunk.type === 'text' && chunk.text !== lastChunk) {
+                    console.log('Received new chunk from API:', chunk)
+                    chunks.push(chunk)
+                    lastChunk = chunk.text
                 }
                 
-                chunkCount++
-                if (chunkCount >= 5) break // Get first 5 chunks
+                // Break after we get a complete response
+                if (lastChunk.includes('2 + 2 = 4')) break
             }
             
             // If we got here, the API call was successful
             expect(chunks.length).toBeGreaterThan(0)
             expect(chunks[0]).toHaveProperty('type')
             
-            console.log('\nFull API Response (first 5 chunks):', fullResponse)
+            // Get the final complete response
+            const finalChunk = chunks[chunks.length - 1]
+            console.log('\nFinal API Response:', finalChunk.text)
             
             if (chunks[0].type === 'text') {
                 expect(typeof chunks[0].text).toBe('string')

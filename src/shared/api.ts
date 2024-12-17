@@ -350,7 +350,7 @@ export const azureOpenAiDefaultApiVersion = "2024-08-01-preview"
 export type CodyModelId = keyof typeof codyModels
 export const codyDefaultModelId: CodyModelId = "claude-3-5-sonnet-20241022"
 export const codyModels: Record<string, ModelInfo> = {
-  "claude-3-5-sonnet-20241022": {
+  "claude-3-5-sonnet-latest": {
     inputPrice: 0,
     outputPrice: 0,
     maxTokens: 8192,
@@ -361,7 +361,7 @@ export const codyModels: Record<string, ModelInfo> = {
     cacheReadsPrice: 0.05,
     cacheWritesPrice: 0.05
   },
-  "claude-3-opus-20240229": {
+  "claude-3-opus": {
     inputPrice: 0,
     outputPrice: 0,
     maxTokens: 8192,
@@ -370,9 +370,9 @@ export const codyModels: Record<string, ModelInfo> = {
     cacheReadsPrice: 0,
     cacheWritesPrice: 0
   },
-  "claude-3-haiku-20240307": {
-    inputPrice: 1.25,
-    outputPrice: 3.75,
+  "claude-3-haiku": {
+    inputPrice: 0,
+    outputPrice: 0,
     maxTokens: 4000,
 		contextWindow: 7000,
     supportsImages: true,
@@ -392,8 +392,8 @@ export const codyModels: Record<string, ModelInfo> = {
 		contextWindow: 45000,
 		supportsImages: true,
 		supportsPromptCache: false,
-		inputPrice: 15,
-		outputPrice: 60,
+		inputPrice: 0,
+		outputPrice: 0,
   },
   "cody-chat-preview-002'": {
     maxTokens: 4000,
