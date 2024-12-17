@@ -1,0 +1,3 @@
+- do not go outside the scope of the task and improve code unless specifically instructed to do so as part of the task
+- Only change, fix add, code that is directly related to the task being requested.
+- Never change the intent of the code unless epcifically instructed to do so.

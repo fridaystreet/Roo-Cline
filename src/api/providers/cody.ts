@@ -33,11 +33,18 @@ export class CodyHandler implements ApiHandler {
     this.instanceUrl = "https://sourcegraph.com/.api/completions/stream?api-version=1";
   }
 
-  private sanitizeMessages(messages: Anthropic.Messages.MessageParam []) {
-    return messages.map(msg => ({
-      text: msg.content,
-      speaker: msg.role === 'assistant' ? 'assistant' : 'human'
-    }));
+  private sanitizeMessages(messages: Anthropic.Messages.MessageParam[]) {
+    return messages.map(msg => {
+      // Handle both string and array content
+      const content = Array.isArray(msg.content)
+        ? msg.content.map(block => block.type === 'text' ? block.text : '').join('\n')
+        : msg.content;
+
+      return {
+        role: msg.role,
+        content: content
+      };
+    });
   }
 
   private getHeaders() {
@@ -51,17 +58,22 @@ export class CodyHandler implements ApiHandler {
 
   async *createMessage(systemPrompt: string, messages: Anthropic.Messages.MessageParam[]): ApiStream {
     const model = this.getModel().id;
+    // Format messages according to Cody API expectations
+    const sanitizedMessages = this.sanitizeMessages(messages);
     const requestBody = {
-      messages: [{ role: "system", content: systemPrompt }, ...this.sanitizeMessages(messages)],
-      ...DEFAULT_CHAT_PARAMETERS,
+      messages: [
+        { role: "system", content: systemPrompt },
+        ...sanitizedMessages
+      ],
       temperature: DEFAULT_CHAT_PARAMETERS.temperature,
+      topK: DEFAULT_CHAT_PARAMETERS.topK,
       topP: DEFAULT_CHAT_PARAMETERS.topP,
       maxTokensToSample: DEFAULT_CHAT_PARAMETERS.maxTokensToSample,
       model,
-      stream: true,
+      stream: true
     };
 
-    // Log the request details in test environment
+    // Log the request details
     if (process.env.NODE_ENV === 'test') {
       console.log('\nSending request with model:', model);
       console.log('Request body:', JSON.stringify(requestBody, null, 2));
@@ -69,6 +81,11 @@ export class CodyHandler implements ApiHandler {
 
     const body = JSON.stringify(requestBody);
     const headers = this.getHeaders()
+
+    console.log('Sending request to Cody API:');
+    console.log('URL:', this.instanceUrl);
+    console.log('Headers:', headers);
+    console.log('Body:', body);
 
     try {
       // Use node-fetch directly
@@ -78,36 +95,73 @@ export class CodyHandler implements ApiHandler {
         body,
       });
 
+      console.log('Cody API Response Status:', response.status);
+      
       if (!response.ok) {
         const errorText = await response.text();
-        throw new Error(`HTTP error! status: ${response.status}, body: ${errorText}`);
+        console.error('Cody API Error Response:', errorText);
+        throw new Error(`Cody API HTTP error! Status: ${response.status}, Body: ${errorText}`);
       }
 
       if (!response.body) {
-        throw new Error('No response body received');
+        console.error('No response body received from Cody API');
+        throw new Error('No response body received from Cody API');
       }
 
+      console.log('Starting to process Cody API response stream');
+
+      console.log('Cody API Response Headers:', response.headers);
+      
       // Read the response as a stream of text
       for await (const chunk of response.body) {
         const text = chunk.toString();
+        console.log('Raw chunk:', text);
+        
         const lines = text.split('\n').filter(line => line.trim());
+        console.log('Parsed lines:', lines);
 
         for (const line of lines) {
+          console.log('Processing line:', line);
+          console.log('Processing line:', line);
+          
           if (line === 'data: [DONE]') {
+            console.log('Received stream end marker');
             return;
           }
 
-          if (line.startsWith('data: ')) {
-            try {
-              const data = JSON.parse(line.slice(6)) as CodyResponse;
+          if (!line.startsWith('data: ')) {
+            console.log('Skipping non-data line:', line);
+            continue;
+          }
+
+          try {
+            const jsonStr = line.slice(6);
+            if (!jsonStr) {
+              console.error('Empty JSON data');
+              continue;
+            }
+
+            const data = JSON.parse(jsonStr) as CodyResponse;
+            if (!data) {
+              console.error('Failed to parse response data');
+              continue;
+            }
+
+            console.log('Parsed response data:', data);
+
+            // Only yield text chunks when we have actual completion content
+            if (data.completion) {
+              console.log('Yielding completion:', data.completion);
               yield {
                 type: 'text' as const,
-                text: data.completion || ''
+                text: data.completion
               };
-            } catch (error) {
-              console.error('Error parsing SSE message:', error);
-              throw error;
+            } else {
+              console.log('Skipping response without completion:', data);
             }
+          } catch (error) {
+            console.error('Error processing line:', error, '\nLine:', line);
+            throw new Error(`Failed to process Cody response: ${error.message}`);
           }
         }
       }
