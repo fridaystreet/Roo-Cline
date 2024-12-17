@@ -8,6 +8,7 @@ export type ApiProvider =
 	| "lmstudio"
 	| "gemini"
 	| "openai-native"
+  | "cody"
 
 export interface ApiHandlerOptions {
 	apiModelId?: string
@@ -35,7 +36,9 @@ export interface ApiHandlerOptions {
 	azureApiVersion?: string
 	openRouterUseMiddleOutTransform?: boolean
 	includeStreamOptions?: boolean
-	setAzureApiVersion?: boolean
+	setAzureApiVersion?: boolean,
+  codyModelId?: string,
+  codyApiKey?: string
 }
 
 export type ApiConfiguration = ApiHandlerOptions & {
@@ -342,3 +345,77 @@ export const openAiNativeModels = {
 // https://learn.microsoft.com/en-us/azure/ai-services/openai/api-version-deprecation
 // https://learn.microsoft.com/en-us/azure/ai-services/openai/reference#api-specs
 export const azureOpenAiDefaultApiVersion = "2024-08-01-preview"
+
+export type CodyModelId = keyof typeof codyModels
+export const codyDefaultModelId: CodyModelId = "claude-3-5-sonnet-20241022"
+export const codyModels: Record<string, ModelInfo> = {
+  "claude-3-5-sonnet-20241022": {
+    inputPrice: 0,
+    outputPrice: 0,
+    maxTokens: 8192,
+		contextWindow: 45000,
+    supportsImages: true,
+		supportsComputerUse: true,
+		supportsPromptCache: true,
+    cacheReadsPrice: 0.05,
+    cacheWritesPrice: 0.05
+  },
+  "claude-3-opus-20240229": {
+    inputPrice: 0,
+    outputPrice: 0,
+    maxTokens: 8192,
+		contextWindow: 45000,
+    supportsPromptCache: true,
+    cacheReadsPrice: 0,
+    cacheWritesPrice: 0
+  },
+  "claude-3-haiku-20240307": {
+    inputPrice: 1.25,
+    outputPrice: 3.75,
+    maxTokens: 4000,
+		contextWindow: 7000,
+    supportsImages: true,
+		supportsPromptCache: true,
+    cacheWritesPrice: 0
+  },
+  "gpt-4o": {
+    maxTokens: 4000,
+		contextWindow: 45000,
+		supportsImages: true,
+		supportsPromptCache: false,
+		inputPrice: 0,
+		outputPrice: 0,
+  },
+  "cody-chat-preview-001": {
+    maxTokens: 4000,
+		contextWindow: 45000,
+		supportsImages: true,
+		supportsPromptCache: false,
+		inputPrice: 15,
+		outputPrice: 60,
+  },
+  "cody-chat-preview-002'": {
+    maxTokens: 4000,
+		contextWindow: 45000,
+		supportsImages: true,
+		supportsPromptCache: false,
+		inputPrice: 0,
+		outputPrice: 0,
+  },
+  "gemini-1.5-flash": {
+    maxTokens: 4000,
+		contextWindow: 45000,
+		supportsImages: true,
+		supportsPromptCache: false,
+		inputPrice: 0,
+		outputPrice: 0,
+  },
+  "gemini-1.5-pro": {
+    maxTokens: 4000,
+		contextWindow: 45000,
+		supportsImages: true,
+		supportsPromptCache: false,
+		inputPrice: 0,
+		outputPrice: 0,
+  }
+};

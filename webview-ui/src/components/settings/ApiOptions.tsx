@@ -26,6 +26,8 @@ import {
 	openRouterDefaultModelInfo,
 	vertexDefaultModelId,
 	vertexModels,
+  codyModels,
+  codyDefaultModelId,
 } from "../../../../src/shared/api"
 import { ExtensionMessage } from "../../../../src/shared/ExtensionMessage"
 import { useExtensionState } from "../../context/ExtensionStateContext"
@@ -135,6 +137,7 @@ const ApiOptions = ({ showModelOptions, apiErrorMessage, modelIdErrorMessage }: 
 					<VSCodeOption value="openai">OpenAI Compatible</VSCodeOption>
 					<VSCodeOption value="lmstudio">LM Studio</VSCodeOption>
 					<VSCodeOption value="ollama">Ollama</VSCodeOption>
+          <VSCodeOption value="cody">Cody</VSCodeOption>
 				</VSCodeDropdown>
 			</div>
 
@@ -629,6 +632,34 @@ const ApiOptions = ({ showModelOptions, apiErrorMessage, modelIdErrorMessage }: 
 				</div>
 			)}
 
+      {selectedProvider === "cody" && (
+				<div>
+					<VSCodeTextField
+						value={apiConfiguration?.openAiNativeApiKey || ""}
+						style={{ width: "100%" }}
+						type="password"
+						onInput={handleInputChange("codyApiKey")}
+						placeholder="Enter API Key...">
+						<span style={{ fontWeight: 500 }}>Cody API Key</span>
+					</VSCodeTextField>
+					<p
+						style={{
+							fontSize: "12px",
+							marginTop: 3,
+							color: "var(--vscode-descriptionForeground)",
+						}}>
+						This key is stored locally and only used to make API requests from this extension.
+						{!apiConfiguration?.codyApiKey && (
+							<VSCodeLink
+								href="https://sourcegraph.com"
+								style={{ display: "inline", fontSize: "inherit" }}>
+								You can get an Cody API key by signing up here.
+							</VSCodeLink>
+						)}
+					</p>
+				</div>
+			)}
+
 			{apiErrorMessage && (
 				<p
 					style={{
@@ -657,6 +688,7 @@ const ApiOptions = ({ showModelOptions, apiErrorMessage, modelIdErrorMessage }: 
 							{selectedProvider === "vertex" && createDropdown(vertexModels)}
 							{selectedProvider === "gemini" && createDropdown(geminiModels)}
 							{selectedProvider === "openai-native" && createDropdown(openAiNativeModels)}
+              {selectedProvider === "cody" && createDropdown(codyModels)}
 						</div>
 
 						<ModelInfoView
@@ -843,7 +875,9 @@ export function normalizeApiConfiguration(apiConfiguration?: ApiConfiguration) {
 			return getProviderData(geminiModels, geminiDefaultModelId)
 		case "openai-native":
 			return getProviderData(openAiNativeModels, openAiNativeDefaultModelId)
-		case "openrouter":
+    case "cody":
+      return getProviderData(codyModels, codyDefaultModelId)
+    case "openrouter":
 			return {
 				selectedProvider: provider,
 				selectedModelId: apiConfiguration?.openRouterModelId || openRouterDefaultModelId,
