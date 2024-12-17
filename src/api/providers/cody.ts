@@ -27,12 +27,10 @@ interface CodyResponse {
 export class CodyHandler implements ApiHandler {
   private options: ApiHandlerOptions;
   private instanceUrl: string;
-  private model: string;
 
   constructor(options: ApiHandlerOptions) {
     this.options = options;
     this.instanceUrl = "https://sourcegraph.com/.api/completions/stream?api-version=1";
-    this.model = options.codyModelId || "claude-3-5-sonnet-latest"; // Default to Claude 3.5 Sonnet
   }
 
   private sanitizeMessages(messages: Anthropic.Messages.MessageParam []) {
@@ -52,16 +50,24 @@ export class CodyHandler implements ApiHandler {
   }
 
   async *createMessage(systemPrompt: string, messages: Anthropic.Messages.MessageParam[]): ApiStream {
-    const body = JSON.stringify({
+    const model = this.getModel().id;
+    const requestBody = {
       messages: [{ role: "system", content: systemPrompt }, ...this.sanitizeMessages(messages)],
       ...DEFAULT_CHAT_PARAMETERS,
       temperature: DEFAULT_CHAT_PARAMETERS.temperature,
       topP: DEFAULT_CHAT_PARAMETERS.topP,
       maxTokensToSample: DEFAULT_CHAT_PARAMETERS.maxTokensToSample,
-      model: this.model,
+      model,
       stream: true,
-    });
+    };
 
+    // Log the request details in test environment
+    if (process.env.NODE_ENV === 'test') {
+      console.log('\nSending request with model:', model);
+      console.log('Request body:', JSON.stringify(requestBody, null, 2));
+    }
+
+    const body = JSON.stringify(requestBody);
     const headers = this.getHeaders()
 
     try {

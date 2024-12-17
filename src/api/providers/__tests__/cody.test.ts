@@ -9,9 +9,11 @@ import { Anthropic } from '@anthropic-ai/sdk'
 describe('CodyHandler', () => {
     // This test requires a valid Cody API key to be set in the environment
     // It tests the actual API functionality, not mocked responses
-    test('createMessage makes successful API call', async () => {
+    test('createMessage makes successful API call with specified model', async () => {
         const options: ApiHandlerOptions = {
-            codyApiKey: process.env.CODY_API_KEY // This should be set in the test environment
+            codyApiKey: process.env.CODY_API_KEY, // This should be set in the test environment
+            codyModelId: 'gemini-1.5-flash', // Override default model
+            apiModelId: 'gemini-1.5-flash' // Required because getModel() checks this
         }
 
         const handler = new CodyHandler(options)
@@ -44,6 +46,11 @@ describe('CodyHandler', () => {
             // Get the final complete response
             const finalChunk = chunks[chunks.length - 1]
             console.log('\nFinal API Response:', finalChunk.text)
+            
+            // Verify we're using the correct model
+            const model = handler.getModel()
+            console.log('\nUsing Model:', model.id)
+            expect(model.id).toBe('gemini-1.5-flash')
             
             if (chunks[0].type === 'text') {
                 expect(typeof chunks[0].text).toBe('string')
