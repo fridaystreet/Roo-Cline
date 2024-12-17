@@ -348,7 +348,7 @@ export const openAiNativeModels = {
 export const azureOpenAiDefaultApiVersion = "2024-08-01-preview"
 
 export type CodyModelId = keyof typeof codyModels
-export const codyDefaultModelId: CodyModelId = "claude-3-5-sonnet-20241022"
+export const codyDefaultModelId: CodyModelId = "claude-3-5-sonnet-latest"
 export const codyModels: Record<string, ModelInfo> = {
   "claude-3-5-sonnet-latest": {
     inputPrice: 0,
