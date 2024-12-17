@@ -108,7 +108,6 @@ export class CodyHandler implements ApiHandler {
       "Content-Type": "application/json; charset=utf-8",
       Authorization: `token ${this.options.apiKey}`,
       "Accept-Encoding": "gzip;q=0", // Disable gzip compression to prevent response batching
-      "X-Sourcegraph-Client": "cody",
     };
   }
 

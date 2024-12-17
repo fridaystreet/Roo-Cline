@@ -635,7 +635,7 @@ const ApiOptions = ({ showModelOptions, apiErrorMessage, modelIdErrorMessage }: 
       {selectedProvider === "cody" && (
 				<div>
 					<VSCodeTextField
-						value={apiConfiguration?.openAiNativeApiKey || ""}
+						value={apiConfiguration?.codyApiKey || ""}
 						style={{ width: "100%" }}
 						type="password"
 						onInput={handleInputChange("codyApiKey")}

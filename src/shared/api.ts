@@ -38,6 +38,7 @@ export interface ApiHandlerOptions {
 	includeStreamOptions?: boolean
 	setAzureApiVersion?: boolean,
   codyModelId?: string,
+  codyModelInfo?: ModelInfo,
   codyApiKey?: string
 }
 

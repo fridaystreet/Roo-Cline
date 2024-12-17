@@ -39,6 +39,7 @@ type SecretKey =
 	| "openAiApiKey"
 	| "geminiApiKey"
 	| "openAiNativeApiKey"
+  | "codyApiKey"
 type GlobalStateKey =
 	| "apiProvider"
 	| "apiModelId"
@@ -70,6 +71,8 @@ type GlobalStateKey =
 	| "diffEnabled"
 	| "debugDiffEnabled"
 	| "alwaysAllowMcp"
+  | "codyModelId"
+  | "codyModelInfo"
 
 export const GlobalFileNames = {
 	apiConversationHistory: "api_conversation_history.json",
@@ -417,6 +420,9 @@ export class ClineProvider implements vscode.WebviewViewProvider {
 								openRouterModelId,
 								openRouterModelInfo,
 								openRouterUseMiddleOutTransform,
+                codyModelId,
+                codyApiKey,
+                codyModelInfo
 							} = message.apiConfiguration
 							await this.updateGlobalState("apiProvider", apiProvider)
 							await this.updateGlobalState("apiModelId", apiModelId)
@@ -439,9 +445,12 @@ export class ClineProvider implements vscode.WebviewViewProvider {
 							await this.updateGlobalState("anthropicBaseUrl", anthropicBaseUrl)
 							await this.storeSecret("geminiApiKey", geminiApiKey)
 							await this.storeSecret("openAiNativeApiKey", openAiNativeApiKey)
+							await this.storeSecret("codyApiKey", codyApiKey)
 							await this.updateGlobalState("azureApiVersion", azureApiVersion)
 							await this.updateGlobalState("openRouterModelId", openRouterModelId)
 							await this.updateGlobalState("openRouterModelInfo", openRouterModelInfo)
+							await this.updateGlobalState("codyModelId", codyModelId)
+							await this.updateGlobalState("codyModelInfo", codyModelInfo)
 							await this.updateGlobalState("openRouterUseMiddleOutTransform", openRouterUseMiddleOutTransform)
 							if (this.cline) {
 								this.cline.api = buildApiHandler(message.apiConfiguration)
