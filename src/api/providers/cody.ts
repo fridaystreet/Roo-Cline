@@ -235,7 +235,7 @@ export class CodyHandler implements ApiHandler {
 
   async *createMessage(systemPrompt: string, messages: Anthropic.Messages.MessageParam[]): ApiStream {
     const body = JSON.stringify({
-      messages: this.sanitizeMessages(messages, systemPrompt),
+      messages: [{ role: "system", content: systemPrompt }, ...this.sanitizeMessages(messages)],
       ...DEFAULT_CHAT_PARAMETERS,
       temperature: DEFAULT_CHAT_PARAMETERS.temperature,
       topP: DEFAULT_CHAT_PARAMETERS.topP,
