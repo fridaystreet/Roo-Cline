@@ -10,6 +10,7 @@ import { LmStudioHandler } from "./providers/lmstudio"
 import { GeminiHandler } from "./providers/gemini"
 import { OpenAiNativeHandler } from "./providers/openai-native"
 import { ApiStream } from "./transform/stream"
+import { DelayDecorator } from "./providers/delay-decorator"
 
 export interface ApiHandler {
 	createMessage(systemPrompt: string, messages: Anthropic.Messages.MessageParam[]): ApiStream
@@ -18,26 +19,39 @@ export interface ApiHandler {
 
 export function buildApiHandler(configuration: ApiConfiguration): ApiHandler {
 	const { apiProvider, ...options } = configuration
+	let handler: ApiHandler;
 	switch (apiProvider) {
 		case "anthropic":
-			return new AnthropicHandler(options)
+			handler = new AnthropicHandler(options)
+			break
 		case "openrouter":
-			return new OpenRouterHandler(options)
+			handler = new OpenRouterHandler(options)
+			break
 		case "bedrock":
-			return new AwsBedrockHandler(options)
+			handler = new AwsBedrockHandler(options)
+			break
 		case "vertex":
-			return new VertexHandler(options)
+			handler = new VertexHandler(options)
+			break
 		case "openai":
-			return new OpenAiHandler(options)
+			handler = new OpenAiHandler(options)
+			break
 		case "ollama":
-			return new OllamaHandler(options)
+			handler = new OllamaHandler(options)
+			break
 		case "lmstudio":
-			return new LmStudioHandler(options)
+			handler = new LmStudioHandler(options)
+			break
 		case "gemini":
-			return new GeminiHandler(options)
+			handler = new GeminiHandler(options)
+			break
 		case "openai-native":
-			return new OpenAiNativeHandler(options)
+			handler = new OpenAiNativeHandler(options)
+			break
 		default:
-			return new AnthropicHandler(options)
+			handler = new AnthropicHandler(options)
 	}
+	
+	// Wrap handler with delay decorator
+	return new DelayDecorator(handler, configuration)
 }
