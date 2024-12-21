@@ -651,6 +651,35 @@ const ApiOptions = ({ showModelOptions, apiErrorMessage, modelIdErrorMessage }: 
 					{modelIdErrorMessage}
 				</p>
 			)}
+
+			{/* Request Delay */}
+			<div className="field-row">
+				<VSCodeTextField
+					value={apiConfiguration?.requestDelay?.toString() ?? "0"}
+					onChange={(e) => {
+						const value = parseInt((e.target as HTMLInputElement).value);
+						const newDelay = isNaN(value) ? 0 : Math.max(0, value);
+						setApiConfiguration({
+							...apiConfiguration,
+							requestDelay: newDelay
+						});
+						// Send message to extension to update VS Code settings
+						vscode.postMessage({
+							type: "apiConfiguration",
+							apiConfiguration: {
+								...apiConfiguration,
+								requestDelay: newDelay
+							}
+						});
+					}}
+					pattern="[0-9]*"
+				>
+					Request Delay (seconds)
+				</VSCodeTextField>
+				<div className="field-description">
+					Delay between API requests to avoid rate limits
+				</div>
+			</div>
 		</div>
 	)
 }

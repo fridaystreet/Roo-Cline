@@ -220,6 +220,27 @@ export const ChatRowContent = ({
 						<span style={{ color: normalColor, fontWeight: "bold" }}>API Request...</span>
 					),
 				]
+			case "api_req_retried":
+				return [
+					<span
+						className="codicon codicon-sync"
+						style={{ color: successColor, marginBottom: "-1.5px" }}></span>,
+					<span style={{ color: successColor, fontWeight: "bold" }}>Retrying request...</span>,
+				]
+			case "api_req_retried_429":
+				return [
+					<span
+						className="codicon codicon-sync"
+						style={{ color: successColor, marginBottom: "-1.5px" }}></span>,
+					<span style={{ color: successColor, fontWeight: "bold" }}>Rate limit hit (429), retrying request...</span>,
+				]
+			case "api_req_failed":
+				return [
+					<span
+						className="codicon codicon-error"
+						style={{ color: errorColor, marginBottom: "-1.5px" }}></span>,
+					<span style={{ color: errorColor, fontWeight: "bold" }}>Request failed</span>,
+				]
 			case "followup":
 				return [
 					<span

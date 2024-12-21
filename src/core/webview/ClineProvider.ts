@@ -60,6 +60,7 @@ type GlobalStateKey =
 	| "openRouterModelId"
 	| "openRouterModelInfo"
 	| "autoApprovalSettings"
+    | "requestDelay"
 
 export const GlobalFileNames = {
 	apiConversationHistory: "api_conversation_history.json",
@@ -354,47 +355,49 @@ export class ClineProvider implements vscode.WebviewViewProvider {
 						// initializing new instance of Cline will make sure that any agentically running promises in old instance don't affect our new task. this essentially creates a fresh slate for the new task
 						await this.initClineWithTask(message.text, message.images)
 						break
-					case "apiConfiguration":
+					case "apiConfiguration": {
+						const {
+							apiKey,
+							apiProvider,
+							apiModelId,
+							openRouterApiKey,
+							awsRegion,
+							awsAccessKey,
+							awsSecretKey,
+							awsSessionToken,
+							awsUseCrossRegionInference,
+							vertexProjectId,
+							vertexRegion,
+							openAiApiKey,
+							openAiBaseUrl,
+							openAiModelId,
+							ollamaModelId,
+							ollamaBaseUrl,
+							lmStudioModelId,
+							lmStudioBaseUrl,
+							anthropicBaseUrl,
+							geminiApiKey,
+							openAiNativeApiKey,
+							azureApiVersion,
+							openRouterModelId,
+							openRouterModelInfo,
+							requestDelay,
+						} = message.apiConfiguration!
+
 						if (message.apiConfiguration) {
-							const {
-								apiProvider,
-								apiModelId,
-								apiKey,
-								openRouterApiKey,
-								awsAccessKey,
-								awsSecretKey,
-								awsSessionToken,
-								awsRegion,
-								awsUseCrossRegionInference,
-								vertexProjectId,
-								vertexRegion,
-								openAiBaseUrl,
-								openAiApiKey,
-								openAiModelId,
-								ollamaModelId,
-								ollamaBaseUrl,
-								lmStudioModelId,
-								lmStudioBaseUrl,
-								anthropicBaseUrl,
-								geminiApiKey,
-								openAiNativeApiKey,
-								azureApiVersion,
-								openRouterModelId,
-								openRouterModelInfo,
-							} = message.apiConfiguration
-							await this.updateGlobalState("apiProvider", apiProvider)
-							await this.updateGlobalState("apiModelId", apiModelId)
 							await this.storeSecret("apiKey", apiKey)
 							await this.storeSecret("openRouterApiKey", openRouterApiKey)
 							await this.storeSecret("awsAccessKey", awsAccessKey)
 							await this.storeSecret("awsSecretKey", awsSecretKey)
 							await this.storeSecret("awsSessionToken", awsSessionToken)
+							await this.storeSecret("openAiApiKey", openAiApiKey)
+							await this.updateGlobalState("apiProvider", apiProvider)
+							await this.updateGlobalState("apiModelId", apiModelId)
 							await this.updateGlobalState("awsRegion", awsRegion)
 							await this.updateGlobalState("awsUseCrossRegionInference", awsUseCrossRegionInference)
 							await this.updateGlobalState("vertexProjectId", vertexProjectId)
 							await this.updateGlobalState("vertexRegion", vertexRegion)
 							await this.updateGlobalState("openAiBaseUrl", openAiBaseUrl)
-							await this.storeSecret("openAiApiKey", openAiApiKey)
 							await this.updateGlobalState("openAiModelId", openAiModelId)
 							await this.updateGlobalState("ollamaModelId", ollamaModelId)
 							await this.updateGlobalState("ollamaBaseUrl", ollamaBaseUrl)
@@ -406,12 +409,14 @@ export class ClineProvider implements vscode.WebviewViewProvider {
 							await this.updateGlobalState("azureApiVersion", azureApiVersion)
 							await this.updateGlobalState("openRouterModelId", openRouterModelId)
 							await this.updateGlobalState("openRouterModelInfo", openRouterModelInfo)
+                            await this.updateGlobalState("requestDelay", requestDelay)
 							if (this.cline) {
 								this.cline.api = buildApiHandler(message.apiConfiguration)
 							}
 						}
 						await this.postStateToWebview()
 						break
+					}
 					case "customInstructions":
 						await this.updateCustomInstructions(message.text)
 						break
@@ -511,6 +516,12 @@ export class ClineProvider implements vscode.WebviewViewProvider {
 						}
 						break
 					}
+					case "updateRequestDelay":
+						const requestDelay = message.value;
+						await vscode.workspace.getConfiguration().update("cline.requestDelay", requestDelay, true);
+						await this.updateGlobalState("requestDelay", requestDelay);
+						await this.postStateToWebview();
+						break;
 					// Add more switch case statements here as more webview message commands
 					// are created within the webview context (i.e. inside media/main.js)
 				}
@@ -919,10 +930,11 @@ export class ClineProvider implements vscode.WebviewViewProvider {
 			azureApiVersion,
 			openRouterModelId,
 			openRouterModelInfo,
-			lastShownAnnouncementId,
+            lastShownAnnouncementId,
 			customInstructions,
 			taskHistory,
 			autoApprovalSettings,
+            requestDelay,
 		] = await Promise.all([
 			this.getGlobalState("apiProvider") as Promise<ApiProvider | undefined>,
 			this.getGlobalState("apiModelId") as Promise<string | undefined>,
@@ -952,6 +964,7 @@ export class ClineProvider implements vscode.WebviewViewProvider {
 			this.getGlobalState("customInstructions") as Promise<string | undefined>,
 			this.getGlobalState("taskHistory") as Promise<HistoryItem[] | undefined>,
 			this.getGlobalState("autoApprovalSettings") as Promise<AutoApprovalSettings | undefined>,
+            this.getGlobalState("requestDelay") as Promise<number | undefined>,
 		])
 
 		let apiProvider: ApiProvider
@@ -994,6 +1007,7 @@ export class ClineProvider implements vscode.WebviewViewProvider {
 				azureApiVersion,
 				openRouterModelId,
 				openRouterModelInfo,
+                requestDelay,
 			},
 			lastShownAnnouncementId,
 			customInstructions,

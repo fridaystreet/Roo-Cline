@@ -46,6 +46,18 @@
 	"activationEvents": [],
 	"main": "./dist/extension.js",
 	"contributes": {
+		"configuration": {
+			"title": "Cline",
+			"properties": {
+				"cline.requestDelay": {
+					"type": "number",
+					"default": 0,
+					"minimum": 0,
+					"description": "Delay in seconds between API requests to avoid rate limits",
+					"order": 1
+				}
+			}
+		},
 		"viewsContainers": {
 			"activitybar": [
 				{

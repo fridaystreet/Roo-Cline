@@ -109,6 +109,19 @@ const AutoApproveMenu = ({ style }: AutoApproveMenuProps) => {
 		[autoApprovalSettings],
 	)
 
+	const update429SpamMode = useCallback(
+		(use429SpamMode: boolean) => {
+			vscode.postMessage({
+				type: "autoApprovalSettings",
+				autoApprovalSettings: {
+					...autoApprovalSettings,
+					use429SpamMode,
+				},
+			})
+		},
+		[autoApprovalSettings],
+	)
+
 	const updateNotifications = useCallback(
 		(enableNotifications: boolean) => {
 			vscode.postMessage({
@@ -160,10 +173,6 @@ const AutoApproveMenu = ({ style }: AutoApproveMenuProps) => {
 					style={{ pointerEvents: hasEnabledActions ? "auto" : "none" }}
 					checked={hasEnabledActions && autoApprovalSettings.enabled}
 					disabled={!hasEnabledActions}
-					// onChange={(e) => {
-					// 	const checked = (e.target as HTMLInputElement).checked
-					// 	updateEnabled(checked)
-					// }}
 					onClick={(e) => {
 						/*
 						vscode web toolkit bug: when changing the value of a vscodecheckbox programatically, it will call its onChange with stale state. This led to updateEnabled being called with an old vesion of autoApprovalSettings, effectively undoing the state change that was triggered by the last action being unchecked. A simple workaround is to just not use onChange and intead use onClick. We are lucky this is a checkbox and the newvalue is simply opposite of current state.
@@ -281,6 +290,24 @@ const AutoApproveMenu = ({ style }: AutoApproveMenuProps) => {
 						}}>
 						Cline will automatically make this many API requests before asking for approval to proceed with
 						the task.
+					</div>
+					<div style={{ margin: "6px 0" }}>
+						<VSCodeCheckbox
+							checked={autoApprovalSettings.use429SpamMode}
+							onChange={(e) => {
+								const checked = (e.target as HTMLInputElement).checked
+								update429SpamMode(checked)
+							}}>
+							Use 429 spam mode
+							<div
+								style={{
+									marginLeft: "28px",
+									color: "var(--vscode-descriptionForeground)",
+									fontSize: "12px",
+								}}>
+								Automatically retry requests that receive 429 (Too Many Requests) errors without asking for approval.
+							</div>
+						</VSCodeCheckbox>
 					</div>
 					<div style={{ margin: "6px 0" }}>
 						<VSCodeCheckbox

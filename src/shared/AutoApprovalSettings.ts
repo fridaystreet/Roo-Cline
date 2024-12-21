@@ -12,6 +12,7 @@ export interface AutoApprovalSettings {
 	// Global settings
 	maxRequests: number // Maximum number of auto-approved requests
 	enableNotifications: boolean // Show notifications for approval and task completion
+	use429SpamMode: boolean // Automatically retry requests that receive 429 errors
 }
 
 export const DEFAULT_AUTO_APPROVAL_SETTINGS: AutoApprovalSettings = {
@@ -25,4 +26,5 @@ export const DEFAULT_AUTO_APPROVAL_SETTINGS: AutoApprovalSettings = {
 	},
 	maxRequests: 20,
 	enableNotifications: false,
+	use429SpamMode: false,
 }

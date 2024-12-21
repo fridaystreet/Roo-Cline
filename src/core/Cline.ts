@@ -846,6 +846,18 @@ export class Cline {
 			const firstChunk = await iterator.next()
 			yield firstChunk.value
 		} catch (error) {
+			// Check if it's a 429 error and use429SpamMode is enabled
+			if (
+				this.autoApprovalSettings.enabled &&
+				this.autoApprovalSettings.use429SpamMode &&
+				(error.status === 429 || error.message?.includes('429') || error.message?.toLowerCase().includes('too many requests'))
+			) {
+				await this.say("api_req_retried_429")
+				// delegate generator output from the recursive call
+				yield* this.attemptApiRequest(previousApiReqIndex)
+				return
+			}
+
 			// note that this api_req_failed ask is unique in that we only present this option if the api hasn't streamed any content yet (ie it fails on the first chunk due), as it would allow them to hit a retry button. However if the api failed mid-stream, it could be in any arbitrary state where some tools may have executed, so that error is handled differently and requires cancelling the task entirely.
 			const { response } = await this.ask(
 				"api_req_failed",
@@ -1177,7 +1189,7 @@ export class Cline {
 								// update gui message
 								const partialMessage = JSON.stringify(sharedMessageProps)
 								if (this.shouldAutoApproveTool(block.name)) {
-									this.removeLastPartialMessageIfExistsWithType("ask", "tool") // in case the user changes auto-approval settings mid stream
+									this.removeLastPartialMessageIfExistsWithType("ask", "tool")
 									await this.say("tool", partialMessage, undefined, block.partial)
 								} else {
 									this.removeLastPartialMessageIfExistsWithType("say", "tool")
@@ -1333,7 +1345,7 @@ export class Cline {
 								} satisfies ClineSayTool)
 								if (this.shouldAutoApproveTool(block.name)) {
 									this.removeLastPartialMessageIfExistsWithType("ask", "tool")
-									await this.say("tool", completeMessage, undefined, false) // need to be sending partialValue bool, since undefined has its own purpose in that the message is treated neither as a partial or completion of a partial, but as a single complete message
+									await this.say("tool", completeMessage, undefined, false)
 									this.consecutiveAutoApprovedRequestsCount++
 								} else {
 									showNotificationForApprovalIfAutoApprovalEnabled(

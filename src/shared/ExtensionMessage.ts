@@ -82,6 +82,7 @@ export type ClineSay =
 	| "user_feedback"
 	| "user_feedback_diff"
 	| "api_req_retried"
+	| "api_req_retried_429"
 	| "command"
 	| "command_output"
 	| "tool"
