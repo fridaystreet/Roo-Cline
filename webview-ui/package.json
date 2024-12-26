@@ -3,9 +3,16 @@
 	"version": "0.1.0",
 	"private": true,
 	"dependencies": {
+		"@farscrl/tiptap-extension-spellchecker": "^1.0.6",
 		"@testing-library/jest-dom": "^5.17.0",
 		"@testing-library/react": "^13.4.0",
 		"@testing-library/user-event": "^13.5.0",
+		"@tiptap/core": "^2.10.4",
+		"@tiptap/extension-highlight": "^2.10.4",
+		"@tiptap/extension-placeholder": "^2.10.4",
+		"@tiptap/extension-typography": "^2.10.4",
+		"@tiptap/react": "^2.10.4",
+		"@tiptap/starter-kit": "^2.10.4",
 		"@types/jest": "^27.5.2",
 		"@types/node": "^16.18.101",
 		"@types/react": "^18.3.3",
@@ -14,6 +21,8 @@
 		"debounce": "^2.1.1",
 		"fast-deep-equal": "^3.1.3",
 		"fuse.js": "^7.0.0",
+		"hunspell-asm": "^4.0.2",
+		"lodash.isequal": "^4.5.0",
 		"react": "^18.3.1",
 		"react-dom": "^18.3.1",
 		"react-remark": "^2.1.0",
@@ -25,6 +34,7 @@
 		"rewire": "^7.0.0",
 		"styled-components": "^6.1.13",
 		"typescript": "^4.9.5",
+		"typo-js": "^1.2.5",
 		"web-vitals": "^2.1.4"
 	},
 	"scripts": {

@@ -12,6 +12,7 @@ import {
 import { MAX_IMAGES_PER_MESSAGE } from "./ChatView"
 import ContextMenu from "./ContextMenu"
 import Thumbnails from "../common/Thumbnails"
+import ChatTextAreaEditor from "./ChatTextAreaEditor/ChatTextAreaEditor"
 
 declare const vscode: any;
 
@@ -422,6 +423,7 @@ const ChatTextArea = forwardRef<HTMLTextAreaElement, ChatTextAreaProps>(
 			[updateCursorPosition],
 		)
 
+
 		return (
 			<div
 				style={{
@@ -533,10 +535,44 @@ const ChatTextArea = forwardRef<HTMLTextAreaElement, ChatTextAreaProps>(
 						borderTop: 0,
 						borderColor: "transparent",
 						borderBottom: `${thumbnailsHeight + 6}px solid transparent`,
-						padding: "9px 49px 3px 9px",
+						padding: "9px 49px 3px 9px"
 					}}
 				/>
-				<DynamicTextArea
+        <ChatTextAreaEditor 
+          ref={(el: any) => {
+            if (typeof ref === "function") {
+              ref(el)
+            } else if (ref) {
+              ref.current = el
+            }
+            textAreaRef.current = el
+          }}
+          value={inputValue}
+          disabled={textAreaDisabled}
+          onChange={(e: any) => {
+            handleInputChange(e)
+            updateHighlights()
+          }}
+          onKeyDown={handleKeyDown}
+          onKeyUp={handleKeyUp}
+          onFocus={() => setIsTextAreaFocused(true)}
+          onBlur={handleBlur}
+          onPaste={handlePaste}
+          onSelect={updateCursorPosition}
+          onMouseUp={updateCursorPosition}
+          onHeightChange={(height: number) => {
+            if (textAreaBaseHeight === undefined || height < textAreaBaseHeight) {
+              setTextAreaBaseHeight(height)
+            }
+            onHeightChange?.(height)
+          }}
+          spellCheck={true}
+          placeholder={placeholderText}
+          minRows={2}
+          maxRows={20}
+          autoFocus={true}        
+        />
+				{/* <DynamicTextArea
 					ref={(el) => {
 						if (typeof ref === "function") {
 							ref(el)
@@ -545,7 +581,7 @@ const ChatTextArea = forwardRef<HTMLTextAreaElement, ChatTextAreaProps>(
 						}
 						textAreaRef.current = el
 					}}
-					value={inputValue}
+					value={ival}
 					disabled={textAreaDisabled}
 					onChange={(e) => {
 						handleInputChange(e)
@@ -564,6 +600,7 @@ const ChatTextArea = forwardRef<HTMLTextAreaElement, ChatTextAreaProps>(
 						}
 						onHeightChange?.(height)
 					}}
+          spellCheck={true}
 					placeholder={placeholderText}
 					minRows={2}
 					maxRows={20}
@@ -598,7 +635,7 @@ const ChatTextArea = forwardRef<HTMLTextAreaElement, ChatTextAreaProps>(
 						zIndex: 1,
 					}}
 					onScroll={() => updateHighlights()}
-				/>
+				/> */}
 				{selectedImages.length > 0 && (
 					<Thumbnails
 						images={selectedImages}

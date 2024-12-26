@@ -969,6 +969,7 @@ const ChatView = ({ isHidden, showAnnouncement, hideAnnouncement, showHistoryVie
 					)}
 				</>
 			)}
+      
 			<ChatTextArea
 				ref={textAreaRef}
 				inputValue={inputValue}
