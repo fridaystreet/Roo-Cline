@@ -211,16 +211,20 @@ const ChatTextAreaEditor = React.forwardRef<HTMLTextAreaElement, ChatTextAreaEdi
   autofocus = true
 }, textAreaRef) => {
 
-  const valueRef = useRef(value)
+  const valueRef = useRef<string>(value)
+  const containerRef = useRef<HTMLDivElement>(null)
+  
+  useEffect(() => {
+    if (!containerRef.current || typeof onHeightChange !== 'function') return
+    const observer = new ResizeObserver(function() {
+      const height = containerRef.current?.offsetHeight
+      onHeightChange(height || 0)
+    })
+    observer.observe(containerRef.current)
 
-  // const setTextAreaValue = useCallback((value: string) => {
-  //   console.log('tiptap update', value, textAreaRef.current)
-  //   if (textAreaRef.current) {
-  //     textAreaRef.current.value = value
-  //   }
-  //   console.log('tiptap update', textAreaRef.current)
+    return () => observer.disconnect()
+  }, [containerRef, onHeightChange])
 
-  // }, [textAreaRef])
   const handleOnChange = useCallback((e: any) => {
     if (typeof onChange === 'function') {
       onChange(e)
@@ -353,7 +357,7 @@ const ChatTextAreaEditor = React.forwardRef<HTMLTextAreaElement, ChatTextAreaEdi
 	}, [valueRef, value, editor])
 
   return (
-    <StyledEditor style={style} onScroll={onScroll}>
+    <StyledEditor ref={containerRef} style={style} onScroll={onScroll}>
      <textarea style={{display: 'none'}} ref={textAreaRef} />
      <EditorContent editor={editor} />
     </StyledEditor>
