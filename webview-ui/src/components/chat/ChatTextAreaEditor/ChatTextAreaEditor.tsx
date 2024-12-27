@@ -1,51 +1,17 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react'
+import React, { useEffect, useCallback, useRef } from 'react'
 import styled from "styled-components"
 import Highlight from '@tiptap/extension-highlight'
 import Typography from '@tiptap/extension-typography'
 import StarterKit from '@tiptap/starter-kit'
 import Placeholder from '@tiptap/extension-placeholder'
 import { isEqual } from 'lodash'
-import { Hunspell, HunspellFactory, loadModule } from 'hunspell-asm';
-import SpellcheckerExtension from '@farscrl/tiptap-extension-spellchecker';
-import Text from '@tiptap/extension-text'
-import { EditorContent, useEditor, Editor } from '@tiptap/react'
-import {Proofreader} from '../../../utils/spellchecker';
+import { EditorContent, useEditor } from '@tiptap/react'
 import {
-  getOutput
+  getOutput,
+  SpellcheckerExtension,
+  SpellcheckerProofreader
 } from './extensions'
 import  { CODE_BLOCK_BG_COLOR } from '../../common/CodeBlock'
-
-const useHunspell = () => {
-
-  const hunspellFactory = useRef<HunspellFactory | undefined>()
-  const affFile = useRef<string | undefined>()
-  const dictFile = useRef<string | undefined>()
-  const [hunspell, setHunspell] = useState<Hunspell | undefined>()
-
-  
-  const loadDictionary = useCallback(async () => {
-    hunspellFactory.current = await loadModule();
-
-    const aff = await fetch('https://raw.githubusercontent.com/wooorm/dictionaries/main/dictionaries/en-GB/index.aff');
-    const affBuffer = new Uint8Array(await aff.arrayBuffer());
-    affFile.current = hunspellFactory.current.mountBuffer(affBuffer, 'en.aff');
-
-    const dic = await fetch('https://raw.githubusercontent.com/wooorm/dictionaries/main/dictionaries/en-GB/index.dic');
-    const dictBuffer = new Uint8Array(await dic.arrayBuffer());
-    dictFile.current = hunspellFactory.current.mountBuffer(dictBuffer, 'en.dic');
-
-    setHunspell(hunspellFactory.current.create(affFile.current, dictFile.current));
-  }, [hunspellFactory, affFile, dictFile, setHunspell])
-
-  useEffect(() => {
-    if (!hunspellFactory.current) return 
-    (async () => {
-      await loadDictionary()
-    })()
-  }, [hunspellFactory, loadDictionary])
-
-  return hunspell
-}
 
 const StyledEditor = styled.div`
   /* Basic editor styles */
@@ -222,7 +188,7 @@ interface ChatTextAreaEditorProps {
   placeholder?: string;
   minRows?: number;
   maxRows?: number;
-  autofocus?: boolean;
+  autofocus?: boolean;  
 }
 
 const ChatTextAreaEditor = React.forwardRef<HTMLTextAreaElement, ChatTextAreaEditorProps>(({
@@ -238,8 +204,6 @@ const ChatTextAreaEditor = React.forwardRef<HTMLTextAreaElement, ChatTextAreaEdi
   onMouseUp,
   onHeightChange,
   placeholder,
-  minRows=2,
-  maxRows=20,
   autofocus = true
 }, textAreaRef) => {
 
@@ -299,12 +263,12 @@ const ChatTextAreaEditor = React.forwardRef<HTMLTextAreaElement, ChatTextAreaEdi
       Typography,
       Placeholder.configure({
         placeholder
-      })
-      // SpellcheckerExtension.configure({
-      //   proofreader: new Proofreader(hunspell),
+      }),
+      // SpellcheckerExtension.configure({ 
+      //   proofreader: new SpellcheckerProofreader(),
       //   uiStrings: {
-      //     noSuggestions: 'No suggestions found',
-      //   },
+      //       noSuggestions: 'No suggestions found'
+      //   }
       // })
     ],
     autofocus,
@@ -385,18 +349,20 @@ const ChatTextAreaEditor = React.forwardRef<HTMLTextAreaElement, ChatTextAreaEdi
 	}, [valueRef, value, editor])
 
   return (
-    <>
+    <StyledEditor>
      <textarea style={{display: 'none'}} ref={textAreaRef} />
      <EditorContent editor={editor} />
-    </>
+     </StyledEditor>
   )
 })
 
-const Wrapper = React.forwardRef<HTMLTextAreaElement, ChatTextAreaEditorProps>((props, ref) => {
+// const Wrapper = React.forwardRef<HTMLTextAreaElement, ChatTextAreaEditorProps>((props, ref) => {
 
-  //const hunspell = useHunspell()
-  // if (!hunspell) return <div>Loading...</div>
-  return <StyledEditor><ChatTextAreaEditor ref={ref} {...props}/></StyledEditor>
-})
+//   const hunspell = useHunspell()
+//   return <StyledEditor>
+//     {hunspell && <ChatTextAreaEditor ref={ref} {...props} hunspell={hunspell}/>}
+//     {!hunspell && <div>Loading...</div>}
+//   </StyledEditor>
+// })
 
-export default Wrapper
+export default ChatTextAreaEditor
