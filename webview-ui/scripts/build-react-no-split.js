@@ -12,7 +12,7 @@
 const rewire = require("rewire")
 const defaults = rewire("react-scripts/scripts/build.js")
 const config = defaults.__get__("config")
-
+const production = process.argv.includes("--production")
 /* Modifying Webpack Configuration for 'shared' dir
 This section uses Rewire to modify Create React App's webpack configuration without ejecting. Rewire allows us to inject and alter the internal build scripts of CRA at runtime. This allows us to maintain a flexible project structure that keeps shared code outside the webview-ui/src directory, while still adhering to CRA's security model that typically restricts imports to within src/. 
 1. Uses the ModuleScopePlugin to whitelist files from the shared directory, allowing them to be imported despite being outside src/. (see: https://stackoverflow.com/questions/44114436/the-create-react-app-imports-restriction-outside-of-src-directory/58321458#58321458)
@@ -107,7 +107,7 @@ config.optimization.runtimeChunk = false
 
 // Rename main.{hash}.js to main.js
 config.output.filename = "static/js/[name].js"
-
+config.devtool = production ? false : 'inline-source-map'
 // Rename main.{hash}.css to main.css
 config.plugins[5].options.filename = "static/css/[name].css"
 config.plugins[5].options.moduleFilename = () => "static/css/main.css"
