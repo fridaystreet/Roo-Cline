@@ -1,4 +1,4 @@
-import React, { forwardRef, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
+import React, { forwardRef, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useImperativeHandle } from "react"
 import DynamicTextArea from "react-textarea-autosize"
 import { mentionRegex, mentionRegexGlobal } from "../../../../src/shared/context-mentions"
 import { useExtensionState } from "../../context/ExtensionStateContext"
@@ -61,6 +61,8 @@ const ChatTextArea = forwardRef<HTMLTextAreaElement, ChatTextAreaProps>(
 		const [intendedCursorPosition, setIntendedCursorPosition] = useState<number | null>(null)
 		const contextMenuContainerRef = useRef<HTMLDivElement>(null)
 
+    useImperativeHandle(ref, () => textAreaRef.current!, [])
+    
 		const queryItems = useMemo(() => {
 			return [
 				{ type: ContextMenuOptionType.Problems, value: "problems" },
@@ -109,7 +111,7 @@ const ChatTextArea = forwardRef<HTMLTextAreaElement, ChatTextAreaProps>(
 
 				setShowContextMenu(false)
 				setSelectedType(null)
-				if (textAreaRef.current) {
+				if (textAreaRef?.current) {
 					let insertValue = value || ""
 					if (type === ContextMenuOptionType.URL) {
 						insertValue = value || ""
@@ -539,14 +541,7 @@ const ChatTextArea = forwardRef<HTMLTextAreaElement, ChatTextAreaProps>(
 					}}
 				/>
         <ChatTextAreaEditor 
-          ref={(el: any) => {
-            if (typeof ref === "function") {
-              ref(el)
-            } else if (ref) {
-              ref.current = el
-            }
-            textAreaRef.current = el
-          }}
+          ref={textAreaRef}
           value={inputValue}
           disabled={textAreaDisabled}
           onChange={(e: any) => {
@@ -566,11 +561,10 @@ const ChatTextArea = forwardRef<HTMLTextAreaElement, ChatTextAreaProps>(
             }
             onHeightChange?.(height)
           }}
-          spellCheck={true}
           placeholder={placeholderText}
           minRows={2}
           maxRows={20}
-          autoFocus={true}        
+          autofocus={true}        
         />
 				{/* <DynamicTextArea
 					ref={(el) => {

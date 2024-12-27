@@ -13,6 +13,7 @@ import {Proofreader} from '../../../utils/spellchecker';
 import {
   getOutput
 } from './extensions'
+import  { CODE_BLOCK_BG_COLOR } from '../../common/CodeBlock'
 
 const useHunspell = () => {
 
@@ -49,47 +50,47 @@ const useHunspell = () => {
 const StyledEditor = styled.div`
   /* Basic editor styles */
 
-  boxSizing: "border-box";
-  backgroundColor: "transparent";
-  color: "var(--vscode-input-foreground)";
-  borderRadius: 2;
-  fontFamily: "var(--vscode-font-family)";
-  fontSize: "var(--vscode-editor-font-size)";
-  lineHeight: "var(--vscode-editor-line-height)";
-  resize: "none";
-  overflowX: "hidden";
-  overflowY: "scroll";
-  borderLeft: 0;
-  borderRight: 0;
-  borderTop: 0;
-  borderColor: "transparent";  
-  flex: 1;
-  zIndex: 1;
   width: 100%;
+  box-sizing: border-box;
+  background-color: transparent;
+  color: var(--vscode-input-foreground);
+  border-radius: 2px;
+  font-family: var(--vscode-font-family);
+  font-size: var(--vscode-editor-font-size);
+  line-height: var(--vscode-editor-line-height);
+  resize: none;
+  overflow: hidden scroll;
+  border-width: 0px 0px 6px;
+  border-left-style: initial;
+  border-color: transparent;
+  border-right-style: initial;
+  border-top-style: initial;
+  border-bottom-style: solid;
+  z-index: 1;
+  min-height: 26px;
+  max-height: 260px;
 
   .ProseMirror:focus {
     outline: none;
   }
 
+  .ProseMirror p.is-editor-empty:first-child::before {
+    content: attr(data-placeholder);
+    float: left;
+    pointer-events: none;
+    opacity: 0.6;
+    height: 0;
+  }
+
   .tiptap {
+  
+    min-height: 26px;
+    max-height: 260px;
+    
   
     padding-top: 10px;
     padding-bottom: 7px;
-
-    :first-child {
-      margin-top: 0;
-      margin-bottom: 0;
-    }
-
-    :last-child {
-      margin-bottom: 0;
-    }
-
-    > * {
-      margin-left: 10px;
-      margin-right: 55px;
-    }
-
+      
     /* List styles */
     ul, 
     ol {
@@ -140,15 +141,23 @@ const StyledEditor = styled.div`
 
     /* Code and preformatted text styles */
     code {
-      background-color: var(--purple-light);
-      border-radius: 0.4rem;
-      color: var(--black);
-      font-size: 0.85rem;
-      padding: 0.25em 0.3em;
+      span.line:empty {
+        display: none;
+      }
+      word-wrap: break-word;
+      border-radius: 5px;
+      background-color: ${CODE_BLOCK_BG_COLOR};
+      font-size: var(--vscode-editor-font-size, var(--vscode-font-size, 12px));
+      font-family: var(--vscode-editor-font-family);
+    }
+
+    code:not(pre > code) {
+      font-family: var(--vscode-editor-font-family);
+      color: #f78383;
     }
 
     pre {
-      background: var(--black);
+      background: ${CODE_BLOCK_BG_COLOR};
       border-radius: 0.5rem;
       color: var(--white);
       font-family: 'JetBrainsMono', monospace;
@@ -181,9 +190,42 @@ const StyledEditor = styled.div`
       border-top: 1px solid var(--gray-2);
       margin: 2rem 0;
     }
+    
+    :first-child {
+      margin-top: 0;
+      margin-bottom: 0;
+    }
+
+    :last-child {
+      margin-bottom: 0;
+    }
+
+    > * {
+      margin-left: 10px;
+      margin-right: 55px;
+    }
+
   }
 `
-const ChatTextAreaEditor = React.forwardRef(({
+interface ChatTextAreaEditorProps {
+  value: string;
+  disabled?: boolean;
+  onChange?: (e: any) => void;
+  onSelect?: (e: any) => void;
+  onKeyDown?: (e: any, view: any) => void;
+  onKeyUp?: (e: any, view: any) => void;
+  onFocus?: (e: any, editor: any) => void;
+  onBlur?: (e: any, editor: any) => void;
+  onPaste?: (e: any, view: any) => void;
+  onMouseUp?: (e: any, view: any) => void;
+  onHeightChange?: (height: number) => void;
+  placeholder?: string;
+  minRows?: number;
+  maxRows?: number;
+  autofocus?: boolean;
+}
+
+const ChatTextAreaEditor = React.forwardRef<HTMLTextAreaElement, ChatTextAreaEditorProps>(({
   value,
   disabled,
   onChange,
@@ -199,7 +241,7 @@ const ChatTextAreaEditor = React.forwardRef(({
   minRows=2,
   maxRows=20,
   autofocus = true
-}: any, textAreaRef: React.ForwardedRef<React.MutableRefObject<HTMLTextAreaElement>>) => {
+}, textAreaRef) => {
 
   const valueRef = useRef(value)
 
@@ -212,22 +254,47 @@ const ChatTextAreaEditor = React.forwardRef(({
 
   // }, [textAreaRef])
   const handleOnChange = useCallback((e: any) => {
-    console.log('change', e)
     if (typeof onChange === 'function') {
       onChange(e)
     }
   }, [onChange])
 
+  const handleOnSelect = useCallback((e: any) => {
+    if (typeof onSelect === 'function') {
+      onSelect(e)
+    }
+  }, [onSelect])
+
+  const sendTextAreaEvent = useCallback((name: string, data: any = {}) => {
+    if (textAreaRef && typeof textAreaRef !== 'function' && textAreaRef.current) {
+      for (let key in data) {
+        if (key in textAreaRef.current) {
+          (textAreaRef.current as any)[key] = data[key]
+        }
+      }
+      var event = new Event(name, { bubbles: true })
+      textAreaRef.current.dispatchEvent(event)
+    }
+  }, [textAreaRef])
+
   useEffect(() => {
-    textAreaRef?.current?.addEventListener('change', handleOnChange);
-    const ref = textAreaRef?.current
-    return () => ref?.removeEventListener('change', handleOnChange);
-  }, [textAreaRef, handleOnChange])
+    if (textAreaRef) {
+      const ref = typeof textAreaRef === 'function' ? null : textAreaRef.current;
+      ref?.addEventListener('change', handleOnChange);
+      ref?.addEventListener('select', handleOnSelect);
+      return () => {
+        ref?.removeEventListener('change', handleOnChange)
+        ref?.removeEventListener('select', handleOnChange)
+      }
+    }
+  }, [textAreaRef, handleOnChange, handleOnSelect]);
 
 
   const editor = useEditor({
     extensions: [
-      StarterKit,
+      StarterKit.configure({
+        codeBlock: false,
+      }),
       Highlight,
       Typography,
       Placeholder.configure({
@@ -271,11 +338,6 @@ const ChatTextAreaEditor = React.forwardRef(({
           if (typeof onPaste === 'function') {
             onPaste(event, view)
           }
-        },
-        select: (view, event) => {
-          if (typeof onSelect === 'function') {
-            onSelect(event, view)
-          }
         }
       }
     },
@@ -286,22 +348,23 @@ const ChatTextAreaEditor = React.forwardRef(({
     //   // The editor is ready.
     // },
     onUpdate({ editor }) {
-      const text = getOutput(editor).plainText
-      valueRef.current = text
-      var event = new Event('change', { bubbles: true })
-      textAreaRef?.current?.dispatchEvent(event)
+      const value = getOutput(editor).plainText
+      valueRef.current = value;
+      sendTextAreaEvent('change', { value })
     },
-    // onSelectionUpdate({ editor }) {
-    //   // The selection has changed.
-    // },
+    onSelectionUpdate({ editor }) {
+      const { view } = editor
+      const { from, to } = view.state.selection
+      sendTextAreaEvent('select', { selectionStart: from-1, selectionEnd: to-1 })
+    },
     // onTransaction({ editor, transaction }) {
     //   // The editor state has changed.
     // },
     onFocus({ editor, event }) {
-      if (typeof onBlur === 'function') return onFocus(event, editor)
+      if (typeof onFocus === 'function') return onFocus(event, editor)
     },
     onBlur({ editor, event }) {
-      if (typeof onBlur === 'function') return onFocus(event, editor)
+      if (typeof onBlur === 'function') return onBlur(event, editor)
     },
     // onDestroy() {
     //   // The editor is being destroyed.
@@ -313,7 +376,8 @@ const ChatTextAreaEditor = React.forwardRef(({
 
 
   useEffect(() => {
-		if (!editor || !value || isEqual(valueRef.current, value)) return;
+		if (!editor || value === undefined || isEqual(valueRef.current, value)) return;
+    if (value === "" && !valueRef.current) return
     //hack workaround for this issue https://github.com/ueberdosis/tiptap/issues/3580
     queueMicrotask(() => {
       editor.commands.setContent(value)
@@ -322,17 +386,15 @@ const ChatTextAreaEditor = React.forwardRef(({
 
   return (
     <>
-     <textarea ref={textAreaRef} value={valueRef.current} />
+     <textarea style={{display: 'none'}} ref={textAreaRef} />
      <EditorContent editor={editor} />
     </>
   )
 })
 
-const Wrapper = React.forwardRef((props: any, ref: React.ForwardedRef<React.MutableRefObject<HTMLTextAreaElement>>) => {
+const Wrapper = React.forwardRef<HTMLTextAreaElement, ChatTextAreaEditorProps>((props, ref) => {
 
   //const hunspell = useHunspell()
-
-  console.log('tiptap', props)
   // if (!hunspell) return <div>Loading...</div>
   return <StyledEditor><ChatTextAreaEditor ref={ref} {...props}/></StyledEditor>
 })
