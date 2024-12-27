@@ -562,9 +562,37 @@ const ChatTextArea = forwardRef<HTMLTextAreaElement, ChatTextAreaProps>(
             onHeightChange?.(height)
           }}
           placeholder={placeholderText}
-          minRows={2}
-          maxRows={20}
-          autofocus={true}        
+          autofocus={true}    
+          style={{
+						width: "100%",
+						boxSizing: "border-box",
+						backgroundColor: "transparent",
+						color: "var(--vscode-input-foreground)",
+						//border: "1px solid var(--vscode-input-border)",
+						borderRadius: 2,
+						fontFamily: "var(--vscode-font-family)",
+						fontSize: "var(--vscode-editor-font-size)",
+						lineHeight: "var(--vscode-editor-line-height)",
+						resize: "none",
+						overflowX: "hidden",
+						overflowY: "scroll",
+						// Since we have maxRows, when text is long enough it starts to overflow the bottom padding, appearing behind the thumbnails. To fix this, we use a transparent border to push the text up instead. (https://stackoverflow.com/questions/42631947/maintaining-a-padding-inside-of-text-area/52538410#52538410)
+						// borderTop: "9px solid transparent",
+						borderLeft: 0,
+						borderRight: 0,
+						borderTop: 0,
+						borderBottom: `${thumbnailsHeight + 6}px solid transparent`,
+						borderColor: "transparent",
+						// borderRight: "54px solid transparent",
+						// borderLeft: "9px solid transparent", // NOTE: react-textarea-autosize doesn't calculate correct height when using borderLeft/borderRight so we need to use horizontal padding instead
+						// Instead of using boxShadow, we use a div with a border to better replicate the behavior when the textarea is focused
+						// boxShadow: "0px 0px 0px 1px var(--vscode-input-border)",
+						// padding: "9px 49px 3px 9px",
+						cursor: textAreaDisabled ? "not-allowed" : undefined,
+						flex: 1,
+						zIndex: 1,
+					}}
+					onScroll={() => updateHighlights()}
         />
 				{/* <DynamicTextArea
 					ref={(el) => {

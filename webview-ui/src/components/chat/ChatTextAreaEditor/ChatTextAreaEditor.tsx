@@ -185,10 +185,12 @@ interface ChatTextAreaEditorProps {
   onPaste?: (e: any, view: any) => void;
   onMouseUp?: (e: any, view: any) => void;
   onHeightChange?: (height: number) => void;
+  onScroll?: (e: any) => void;
   placeholder?: string;
   minRows?: number;
   maxRows?: number;
   autofocus?: boolean;  
+  style?: any
 }
 
 const ChatTextAreaEditor = React.forwardRef<HTMLTextAreaElement, ChatTextAreaEditorProps>(({
@@ -203,7 +205,9 @@ const ChatTextAreaEditor = React.forwardRef<HTMLTextAreaElement, ChatTextAreaEdi
   onSelect,
   onMouseUp,
   onHeightChange,
+  onScroll,
   placeholder,
+  style,
   autofocus = true
 }, textAreaRef) => {
 
@@ -349,10 +353,10 @@ const ChatTextAreaEditor = React.forwardRef<HTMLTextAreaElement, ChatTextAreaEdi
 	}, [valueRef, value, editor])
 
   return (
-    <StyledEditor>
+    <StyledEditor style={style} onScroll={onScroll}>
      <textarea style={{display: 'none'}} ref={textAreaRef} />
      <EditorContent editor={editor} />
-     </StyledEditor>
+    </StyledEditor>
   )
 })
 
