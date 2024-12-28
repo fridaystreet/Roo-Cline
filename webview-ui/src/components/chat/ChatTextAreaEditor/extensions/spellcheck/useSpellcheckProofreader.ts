@@ -3,7 +3,6 @@ import { SpellcheckerProofreader } from './typo-js-proofreader'
 import { vscode } from "../../../../../utils/vscode"
 
 const proofreader = new SpellcheckerProofreader()
-let isInitialized = false
 
 export const useSpellcheckProofreader = () => {
   const [locale, setLocale] = useState<string | undefined>()
@@ -17,7 +16,6 @@ export const useSpellcheckProofreader = () => {
         setLocale(message.text)
         if (message.dictionary) {
           proofreader.loadDictionary(message.dictionary, message.text)
-          isInitialized = true
         }
       }
     }
@@ -37,5 +35,3 @@ export const useSpellcheckProofreader = () => {
 
   return proofreader
 }
-
-export const isProofreaderInitialized = () => isInitialized

@@ -1,3 +1,3 @@
 export * from './ai'
 export * from './useAI'
-// export * from './AiToolbarButton.js.old'
+export * from './AiToolbarButton'

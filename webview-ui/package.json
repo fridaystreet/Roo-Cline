@@ -19,7 +19,6 @@
 		"@types/typo-js": "^1.2.2",
 		"@vscode/webview-ui-toolkit": "^1.4.0",
 		"debounce": "^2.1.1",
-		"dictionary-en": "^4.0.0",
 		"fast-deep-equal": "^3.1.3",
 		"fuse.js": "^7.0.0",
 		"react": "^18.3.1",

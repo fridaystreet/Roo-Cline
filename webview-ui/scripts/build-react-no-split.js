@@ -49,7 +49,6 @@ config.resolve.plugins.forEach((plugin) => {
 		sharedFiles.forEach((file) => plugin.allowedFiles.add(file))
 	}
 })
-
 /* 
 Webpack configuration
 
