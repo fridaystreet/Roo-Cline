@@ -26,12 +26,7 @@ const StyledEditor = styled.div`
   line-height: var(--vscode-editor-line-height);
   resize: none;
   overflow: hidden scroll;
-  border-width: 0px 0px 6px;
-  border-left-style: initial;
   border-color: transparent;
-  border-right-style: initial;
-  border-top-style: initial;
-  border-bottom-style: solid;
   z-index: 1;
   min-height: 26px;
   max-height: 260px;
@@ -52,10 +47,9 @@ const StyledEditor = styled.div`
   
     min-height: 26px;
     max-height: 260px;
-    
   
     padding-top: 10px;
-    padding-bottom: 7px;
+    padding-bottom: 12px;
       
     /* List styles */
     ul, 
@@ -159,7 +153,6 @@ const StyledEditor = styled.div`
     
     :first-child {
       margin-top: 0;
-      margin-bottom: 0;
     }
 
     :last-child {
@@ -185,12 +178,12 @@ interface ChatTextAreaEditorProps {
   onPaste?: (e: any, view: any) => void;
   onMouseUp?: (e: any, view: any) => void;
   onHeightChange?: (height: number) => void;
-  onScroll?: (e: any) => void;
+  onScroll?: (e: React.UIEvent<HTMLDivElement>) => void;
   placeholder?: string;
   minRows?: number;
   maxRows?: number;
   autofocus?: boolean;  
-  style?: any
+  styles?: any
 }
 
 const ChatTextAreaEditor = React.forwardRef<HTMLTextAreaElement, ChatTextAreaEditorProps>(({
@@ -207,7 +200,7 @@ const ChatTextAreaEditor = React.forwardRef<HTMLTextAreaElement, ChatTextAreaEdi
   onHeightChange,
   onScroll,
   placeholder,
-  style,
+  styles,
   autofocus = true
 }, textAreaRef) => {
 
@@ -225,17 +218,26 @@ const ChatTextAreaEditor = React.forwardRef<HTMLTextAreaElement, ChatTextAreaEdi
     return () => observer.disconnect()
   }, [containerRef, onHeightChange])
 
-  const handleOnChange = useCallback((e: any) => {
+  const handleOnChange = useCallback((e: Event) => {
     if (typeof onChange === 'function') {
       onChange(e)
     }
   }, [onChange])
 
-  const handleOnSelect = useCallback((e: any) => {
+  const handleOnSelect = useCallback((e: Event) => {
     if (typeof onSelect === 'function') {
       onSelect(e)
     }
   }, [onSelect])
+
+  
+  const handleOnScroll = useCallback((e: React.UIEvent<HTMLDivElement>) => {
+    if (textAreaRef && typeof textAreaRef !== 'function' && textAreaRef.current) {
+      textAreaRef.current.scrollTop = (e.target as HTMLDivElement).scrollTop
+      textAreaRef.current.scrollLeft = (e.target as HTMLDivElement).scrollLeft
+    }
+    if (typeof onScroll === 'function') onScroll(e)
+  }, [textAreaRef, onScroll])
 
   const sendTextAreaEvent = useCallback((name: string, data: any = {}) => {
     if (textAreaRef && typeof textAreaRef !== 'function' && textAreaRef.current) {
@@ -284,13 +286,6 @@ const ChatTextAreaEditor = React.forwardRef<HTMLTextAreaElement, ChatTextAreaEdi
     content: value,
     editorProps: {
       handleDOMEvents: {
-        // input: (view, event) => {
-        //   if (typeof onChange === 'function') {
-            
-            
-        //     onChange(event, view)
-        //   }
-        // },
         keyup: (view, event) => {
           if (typeof onKeyUp === 'function') {
             onKeyUp(event, view)
@@ -313,12 +308,6 @@ const ChatTextAreaEditor = React.forwardRef<HTMLTextAreaElement, ChatTextAreaEdi
         }
       }
     },
-    // onBeforeCreate({ editor }) {
-    //   // Before the view is created.
-    // },
-    // onCreate({ editor }) {
-    //   // The editor is ready.
-    // },
     onUpdate({ editor }) {
       const value = getOutput(editor).plainText
       valueRef.current = value;
@@ -329,21 +318,12 @@ const ChatTextAreaEditor = React.forwardRef<HTMLTextAreaElement, ChatTextAreaEdi
       const { from, to } = view.state.selection
       sendTextAreaEvent('select', { selectionStart: from-1, selectionEnd: to-1 })
     },
-    // onTransaction({ editor, transaction }) {
-    //   // The editor state has changed.
-    // },
     onFocus({ editor, event }) {
       if (typeof onFocus === 'function') return onFocus(event, editor)
     },
     onBlur({ editor, event }) {
       if (typeof onBlur === 'function') return onBlur(event, editor)
-    },
-    // onDestroy() {
-    //   // The editor is being destroyed.
-    // },
-    // onContentError({ editor, error, disableCollaboration }) {
-    //   // The editor content does not match the schema.
-    // },
+    }
   })
 
 
@@ -357,13 +337,15 @@ const ChatTextAreaEditor = React.forwardRef<HTMLTextAreaElement, ChatTextAreaEdi
 	}, [valueRef, value, editor])
 
   return (
-    <StyledEditor ref={containerRef} style={style} onScroll={onScroll}>
+    <StyledEditor ref={containerRef} style={styles} onScroll={handleOnScroll}>
      <textarea style={{display: 'none'}} ref={textAreaRef} />
      <EditorContent editor={editor} />
     </StyledEditor>
   )
 })
 
+//might need to use a wrapper if the dictionary needs to be loaded async
+//shouldn't need to but as a last resort
 // const Wrapper = React.forwardRef<HTMLTextAreaElement, ChatTextAreaEditorProps>((props, ref) => {
 
 //   const hunspell = useHunspell()
