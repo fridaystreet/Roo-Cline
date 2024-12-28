@@ -1,5 +1,17 @@
 # Roo Cline Changelog
 
+## [2.2.32]
+
+-   More efficient workspace tracker
+
+## [2.2.31]
+
+-   Improved logic for auto-approving chained commands
+
+## [2.2.30]
+
+-   Fix bug with auto-approving commands
+
 ## [2.2.29]
 
 -   Add configurable delay after auto-writes to allow diagnostics to catch up
