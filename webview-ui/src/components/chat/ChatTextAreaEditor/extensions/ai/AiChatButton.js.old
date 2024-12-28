@@ -1,0 +1,44 @@
+import { useCallback, useMemo } from 'react'
+import { Editor } from '@tiptap/react'
+
+export const AiToolbarButton = ({ editor }: { editor: Editor | null }) => {
+
+  const aiStatus = useMemo(() => {
+    if (!editor) return undefined;
+    const { selection, doc } = editor.view.state
+    const { from, to } = selection
+    const text = doc.textBetween(from, to, ' ')
+
+    if (editor?.storage?.ai?.loading) return 'Thinking';
+    if (text.match(/<(.*)>.?|<(.*) \/>/)) {
+      return 'Invalid';
+    }
+    if ((text.split(' ').length > 1 && text.length > 3)) {
+      return 'AI';
+    }
+    return undefined;
+  }, [editor]);
+
+  const aiCommand = useCallback((command: string, options: any) => {
+    if (!editor?.isEditable) return;
+    try {
+      editor.chain.focus().command(command, options).run();
+    } catch(e) {
+      console.log(e);
+    }
+  }, [editor]);
+
+  return (
+    <div style={{ display: "flex", alignItems: "center" }}>
+      {editor?.storage?.ai?.loading && aiStatus ? (
+        <span style={{ marginRight: 10, color: "var(--vscode-input-foreground)", opacity: 0.5 }}>{aiStatus}</span>
+      ) : null}
+      <span
+        className={`input-icon-button ${!editor?.isEditable ? "disabled" : ""}`}
+        onClick={() => editor && !editor?.isEditable && aiCommand('enhancePrompt', {})}
+        style={{ fontSize: 16.5 }}
+      />
+       <span className="codicon codicon-sparkle" style={{ fontSize: 16.5 }} />
+    </div>
+  );
+}

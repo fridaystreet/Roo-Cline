@@ -23,7 +23,7 @@ import { openMention } from "../mentions"
 import { getNonce } from "./getNonce"
 import { getUri } from "./getUri"
 import { playSound, setSoundEnabled, setSoundVolume } from "../../utils/sound"
-
+import { getDictionary } from "../../shared/dictionaries"
 /*
 https://github.com/microsoft/vscode-webview-ui-toolkit-samples/blob/main/default/weather-webview/src/providers/WeatherViewProvider.ts
 
@@ -632,6 +632,23 @@ export class ClineProvider implements vscode.WebviewViewProvider {
 						await this.updateGlobalState("writeDelayMs", message.value)
 						await this.postStateToWebview()
 						break
+          case "getDictionary":
+            try {
+              const vscodeLang = message.text || vscode.env.language;
+              const aff = vscode.Uri.joinPath(this.context.extensionUri, "assets", "dictionaries", `dictionary-${vscodeLang}`, 'index.aff')
+              const dic = vscode.Uri.joinPath(this.context.extensionUri, "assets", "dictionaries", `dictionary-${vscodeLang}`, 'index.dic')
+              const dictionary = await getDictionary({ aff, dic } )
+              console.log('getDic', dictionary)
+              await this.postMessageToWebview({
+                type: "dictionary",
+                text: vscodeLang,
+                dictionary
+              })
+            } catch (error) {
+              console.error("Error getting dictionary files:", error)
+              vscode.window.showErrorMessage("Failed to get dictionary")
+            }
+            break
 				}
 			},
 			null,

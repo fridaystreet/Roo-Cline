@@ -65,8 +65,8 @@ export default class Spellchecker {
   }
 
   public hideSuggestionBox(): void {
-    this.suggestionBox.textContent = '';
-    this.suggestionBox.style.display = 'none';
+    // this.suggestionBox.textContent = '';
+    // this.suggestionBox.style.display = 'none';
   }
 
   /**

@@ -3,7 +3,7 @@
 import { ApiConfiguration, ModelInfo } from "./api"
 import { HistoryItem } from "./HistoryItem"
 import { McpServer } from "./mcp"
-
+import { Dictionary } from "./dictionaries"
 // webview will hold state
 export interface ExtensionMessage {
 	type:
@@ -18,6 +18,7 @@ export interface ExtensionMessage {
 		| "partialMessage"
 		| "openRouterModels"
 		| "mcpServers"
+    | "dictionary"
 	text?: string
 	action?:
 		| "chatButtonClicked"
@@ -33,7 +34,8 @@ export interface ExtensionMessage {
 	filePaths?: string[]
 	partialMessage?: ClineMessage
 	openRouterModels?: Record<string, ModelInfo>
-	mcpServers?: McpServer[]
+	mcpServers?: McpServer[],
+  dictionary?: Dictionary
 }
 
 export interface ExtensionState {

@@ -42,6 +42,7 @@ export interface WebviewMessage {
 		| "fuzzyMatchThreshold"
 		| "preferredLanguage"
 		| "writeDelayMs"
+    | "getDictionary"
 	text?: string
 	disabled?: boolean
 	askResponse?: ClineAskResponse
