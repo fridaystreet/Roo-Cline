@@ -53,7 +53,6 @@ const ChatTextArea = forwardRef<HTMLTextAreaElement, ChatTextAreaProps>(
 		const [searchQuery, setSearchQuery] = useState("")
 		const textAreaRef = useRef<HTMLTextAreaElement | null>(null)
 		const [isMouseDownOnMenu, setIsMouseDownOnMenu] = useState(false)
-		const highlightLayerRef = useRef<HTMLDivElement>(null)
 		const [selectedMenuIndex, setSelectedMenuIndex] = useState(-1)
 		const [selectedType, setSelectedType] = useState<ContextMenuOptionType | null>(null)
 		const [justDeletedSpaceAfterMention, setJustDeletedSpaceAfterMention] = useState(false)
@@ -391,23 +390,6 @@ const ChatTextArea = forwardRef<HTMLTextAreaElement, ChatTextAreaProps>(
 			setIsMouseDownOnMenu(true)
 		}, [])
 
-		const updateHighlights = useCallback(() => {
-			if (!textAreaRef.current || !highlightLayerRef.current) return
-
-			const text = textAreaRef.current.value
-
-			highlightLayerRef.current.innerHTML = text
-				.replace(/\n$/, "\n\n")
-				.replace(/[<>&]/g, (c) => ({ "<": "&lt;", ">": "&gt;", "&": "&amp;" })[c] || c)
-				.replace(mentionRegexGlobal, '<mark class="mention-context-textarea-highlight">$&</mark>')
-
-			highlightLayerRef.current.scrollTop = textAreaRef.current.scrollTop
-			highlightLayerRef.current.scrollLeft = textAreaRef.current.scrollLeft
-		}, [])
-
-		useLayoutEffect(() => {
-			updateHighlights()
-		}, [inputValue, updateHighlights])
 
 		const updateCursorPosition = useCallback(() => {
 			if (textAreaRef.current) {
@@ -501,39 +483,11 @@ const ChatTextArea = forwardRef<HTMLTextAreaElement, ChatTextAreaProps>(
 						/>
 					</div>
 				)}
-				<div
-					ref={highlightLayerRef}
-					style={{
-						position: "absolute",
-						top: 10,
-						left: 15,
-						right: 15,
-						bottom: 10,
-						pointerEvents: "none",
-						whiteSpace: "pre-wrap",
-						wordWrap: "break-word",
-						color: "transparent",
-						overflow: "hidden",
-						backgroundColor: "var(--vscode-input-background)",
-						fontFamily: "var(--vscode-font-family)",
-						fontSize: "var(--vscode-editor-font-size)",
-						lineHeight: "var(--vscode-editor-line-height)",
-						borderRadius: 2,
-						borderLeft: 0,
-						borderRight: 0,
-						borderTop: 0,
-						borderColor: "transparent",
-						borderBottom: `${thumbnailsHeight + 6}px solid transparent`,
-					}}
-				/>
-        <ChatTextAreaEditor
+			  <ChatTextAreaEditor
           ref={textAreaRef}
           value={inputValue}
           disabled={textAreaDisabled}
-          onChange={(e: any) => {
-            handleInputChange(e)
-            updateHighlights()
-          }}
+          onChange={handleInputChange}
           onKeyDown={handleKeyDown}
           onKeyUp={handleKeyUp}
           onFocus={() => setIsTextAreaFocused(true)}
@@ -564,7 +518,6 @@ const ChatTextArea = forwardRef<HTMLTextAreaElement, ChatTextAreaProps>(
 						// boxShadow: "0px 0px 0px 1px var(--vscode-input-border)",
 						cursor: textAreaDisabled ? "not-allowed" : undefined,
 					}}
-					onScroll={() => updateHighlights()}
         />
 				{selectedImages.length > 0 && (
 					<Thumbnails

@@ -1,6 +1,5 @@
 import React, { useEffect, useCallback, useRef } from 'react'
 import styled from "styled-components"
-import Highlight from '@tiptap/extension-highlight'
 import Typography from '@tiptap/extension-typography'
 import StarterKit from '@tiptap/starter-kit'
 import Placeholder from '@tiptap/extension-placeholder'
@@ -8,6 +7,7 @@ import { isEqual } from 'lodash'
 import { EditorContent, useEditor } from '@tiptap/react'
 import {
   getOutput,
+  Highlight,
   SpellcheckerExtension,
   SpellcheckerProofreader
 } from './extensions'
@@ -18,7 +18,7 @@ const StyledEditor = styled.div`
 
   width: 100%;
   box-sizing: border-box;
-  background-color: transparent;
+  background-color: var(--vscode-input-background);
   color: var(--vscode-input-foreground);
   border-radius: 2px;
   font-family: var(--vscode-font-family);
@@ -133,8 +133,9 @@ const StyledEditor = styled.div`
     }
 
     mark {
-      background-color: #FAF594;
-      border-radius: 0.4rem;
+      background-color: color-mix(in srgb, var(--vscode-badge-foreground) 30%, #0000);
+      border-radius: 3px;
+      color: inherit;
       box-decoration-break: clone;
       padding: 0.1rem 0.3rem;
     }
@@ -211,12 +212,15 @@ const ChatTextAreaEditor = React.forwardRef<HTMLTextAreaElement, ChatTextAreaEdi
     if (!containerRef.current || typeof onHeightChange !== 'function') return
     const observer = new ResizeObserver(function() {
       const height = containerRef.current?.offsetHeight
+      if (textAreaRef && typeof textAreaRef !== 'function' && textAreaRef.current) {
+        textAreaRef.current.style.height = `${height}px`
+      }
       onHeightChange(height || 0)
     })
     observer.observe(containerRef.current)
 
     return () => observer.disconnect()
-  }, [containerRef, onHeightChange])
+  }, [textAreaRef, containerRef, onHeightChange])
 
   const handleOnChange = useCallback((e: Event) => {
     if (typeof onChange === 'function') {
@@ -250,18 +254,6 @@ const ChatTextAreaEditor = React.forwardRef<HTMLTextAreaElement, ChatTextAreaEdi
       textAreaRef.current.dispatchEvent(event)
     }
   }, [textAreaRef])
-
-  useEffect(() => {
-    if (textAreaRef) {
-      const ref = typeof textAreaRef === 'function' ? null : textAreaRef.current;
-      ref?.addEventListener('change', handleOnChange);
-      ref?.addEventListener('select', handleOnSelect);
-      return () => {
-        ref?.removeEventListener('change', handleOnChange)
-        ref?.removeEventListener('select', handleOnChange)
-      }
-    }
-  }, [textAreaRef, handleOnChange, handleOnSelect]);
 
 
   const editor = useEditor({
@@ -326,21 +318,44 @@ const ChatTextAreaEditor = React.forwardRef<HTMLTextAreaElement, ChatTextAreaEdi
     }
   })
 
+  useEffect(() => {
+    if (textAreaRef) {
+      const ref = typeof textAreaRef === 'function' ? null : textAreaRef.current;
+      ref?.addEventListener('change', handleOnChange);
+      ref?.addEventListener('select', handleOnSelect);
+      return () => {
+        ref?.removeEventListener('change', handleOnChange)
+        ref?.removeEventListener('select', handleOnChange)
+      }
+    }
+  }, [textAreaRef, handleOnChange, handleOnSelect]);
 
   useEffect(() => {
 		if (!editor || value === undefined || isEqual(valueRef.current, value)) return;
     if (value === "" && !valueRef.current) return
     //hack workaround for this issue https://github.com/ueberdosis/tiptap/issues/3580
     queueMicrotask(() => {
-      editor.commands.setContent(value)
+      //set the content to the value passed in, don't fire update events and preserve tariling spaces
+      editor.commands.setContent(value, false, { preserveWhitespace: true })
     })
 	}, [valueRef, value, editor])
 
   return (
-    <StyledEditor ref={containerRef} style={styles} onScroll={handleOnScroll}>
-     <textarea style={{display: 'none'}} ref={textAreaRef} />
-     <EditorContent editor={editor} />
-    </StyledEditor>
+    <>
+      <StyledEditor ref={containerRef} style={styles} onScroll={handleOnScroll}>
+        <EditorContent editor={editor} />
+      </StyledEditor>
+      <textarea 
+        ref={textAreaRef} 
+        style={{
+          visibility: 'hidden', 
+          position: 'absolute', 
+          overflow: 'hidden scroll', 
+          minHeight: '26px', 
+          maxHeight: '260px' 
+        }} 
+      />
+    </>
   )
 })
 

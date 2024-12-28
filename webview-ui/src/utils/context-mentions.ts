@@ -17,11 +17,11 @@ export function insertMention(
 	if (lastAtIndex !== -1) {
 		// If there's an '@' symbol, replace everything after it with the new mention
 		const beforeMention = text.slice(0, lastAtIndex)
-		newValue = beforeMention + "@" + value + " " + afterCursor.replace(/^[^\s]*/, "")
+		newValue = beforeMention + '<mark class="mention-context-textarea-highlight">@' + value + "</mark> " + afterCursor.replace(/^[^\s]*/, "")
 		mentionIndex = lastAtIndex
 	} else {
 		// If there's no '@' symbol, insert the mention at the cursor position
-		newValue = beforeCursor + "@" + value + " " + afterCursor
+		newValue = beforeCursor + '<mark class="mention-context-textarea-highlight">@' + value + "</mark> " + afterCursor
 		mentionIndex = position
 	}
 
