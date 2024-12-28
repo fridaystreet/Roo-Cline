@@ -4,7 +4,7 @@ import { vscode } from "../../../../../utils/vscode"
 
 const proofreader = new SpellcheckerProofreader()
 
-export const useSpellcheckProofreader = () => {
+export const useSpellcheckerProofreader = () => {
   const [locale, setLocale] = useState<string | undefined>()
   const [loading, setLoading] = useState(false)
 
@@ -12,6 +12,7 @@ export const useSpellcheckProofreader = () => {
     const messageHandler = (event: MessageEvent) => {
       const message = event.data
       if (message.type === 'dictionary') {
+        console.log('dic', message)
         setLoading(false)
         setLocale(message.text)
         if (message.dictionary) {
@@ -33,5 +34,5 @@ export const useSpellcheckProofreader = () => {
     }
   }, [loading, locale])
 
-  return proofreader
+  return !locale ? null : proofreader
 }

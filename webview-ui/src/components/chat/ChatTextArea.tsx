@@ -1,5 +1,5 @@
 import React, { forwardRef, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useImperativeHandle } from "react"
-import { mentionRegex, mentionRegexGlobal } from "../../../../src/shared/context-mentions"
+import { mentionRegex } from "../../../../src/shared/context-mentions"
 import { useExtensionState } from "../../context/ExtensionStateContext"
 import {
 	ContextMenuOptionType,
