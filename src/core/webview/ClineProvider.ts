@@ -644,7 +644,6 @@ export class ClineProvider implements vscode.WebviewViewProvider {
               const aff = vscode.Uri.joinPath(this.context.extensionUri, "node_modules", `dictionary-${vscodeLang}`, 'index.aff')
               const dic = vscode.Uri.joinPath(this.context.extensionUri, "node_modules", `dictionary-${vscodeLang}`, 'index.dic')
               const dictionary = await getDictionary({ aff, dic } )
-              console.log('getDic', dictionary)
               await this.postMessageToWebview({
                 type: "dictionary",
                 text: vscodeLang,

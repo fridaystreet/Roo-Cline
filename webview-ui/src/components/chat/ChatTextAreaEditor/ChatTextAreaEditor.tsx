@@ -4,12 +4,14 @@ import Typography from '@tiptap/extension-typography'
 import StarterKit from '@tiptap/starter-kit'
 import Placeholder from '@tiptap/extension-placeholder'
 import { isEqual } from 'lodash'
-import { EditorContent, useEditor, Editor } from '@tiptap/react'
+import { useEditor, Editor } from '@tiptap/react'
 import {
   getOutput,
   Highlight,
   SpellCheck,
-  AIExtension
+  AIExtension,
+  useSlashCommands,
+  SlashCommandEditor
 } from './extensions'
 import  { CODE_BLOCK_BG_COLOR } from '../../common/CodeBlock'
 
@@ -212,6 +214,8 @@ export const ChatTextAreaEditor = React.forwardRef<TipTapHTMLTextAreaElement, Ch
   const valueRef = useRef<string>(value)
   const containerRef = useRef<HTMLDivElement>(null)
   
+  const SlashCommands = useSlashCommands()
+
   useEffect(() => {
     if (!containerRef.current || typeof onHeightChange !== 'function') return
     const observer = new ResizeObserver(function() {
@@ -273,7 +277,8 @@ export const ChatTextAreaEditor = React.forwardRef<TipTapHTMLTextAreaElement, Ch
       SpellCheck,
       AIExtension.configure({
         enhancingMessage: 'Generating new content...',
-      })
+      }),
+      //SlashCommands
     ],
     autofocus,
     editable: !disabled,
@@ -348,7 +353,7 @@ export const ChatTextAreaEditor = React.forwardRef<TipTapHTMLTextAreaElement, Ch
   return (
     <>
       <StyledEditor ref={containerRef} style={styles} onScroll={handleOnScroll}>
-        <EditorContent editor={editor} />
+        <SlashCommandEditor editor={editor} />
       </StyledEditor>
       <textarea 
         ref={textAreaRef} 

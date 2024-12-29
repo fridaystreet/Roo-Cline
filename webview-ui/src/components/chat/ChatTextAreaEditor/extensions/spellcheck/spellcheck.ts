@@ -1,7 +1,10 @@
 import { Extension } from '@tiptap/core'
 import createProofreadPlugin from './proofreadPlugin'
 import { createSpellCheckEnabledStore } from './utils'
-import { generateProofreadErrors } from './languageToolReader'
+import { 
+  languageToolProofreader/*,
+  typoJsProofReader*/
+} from './proofReaders'
 import { createSuggestionBox } from './createSuggestionBox'
 
 import './suggestion.css';
@@ -10,7 +13,7 @@ import './suggestion.css';
 const spellCheckEnabledStore = createSpellCheckEnabledStore(() => true)
 const proofreadPlugin = createProofreadPlugin(
   1000, // Debounce time in ms
-  generateProofreadErrors as never, // function to call proofreading service
+  languageToolProofreader as never, // function to call proofreading service
   createSuggestionBox, // Suggestion box function
   spellCheckEnabledStore, // Reactive store to toggle spell checking,
   undefined, // Custom text function

@@ -13,9 +13,6 @@ export interface DictionaryPaths {
 export const getDictionary = async (paths: DictionaryPaths): Promise<Dictionary | undefined>  => {
 
   try {
-    console.log('dic path', paths)
-
-
     const aff = await vscode.workspace.fs.readFile(paths.aff)
     const dic = await vscode.workspace.fs.readFile(paths.dic)
 

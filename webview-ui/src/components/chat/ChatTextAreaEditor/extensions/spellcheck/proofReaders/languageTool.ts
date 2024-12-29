@@ -1,6 +1,6 @@
 import axios, { type AxiosRequestConfig, type AxiosResponse } from 'axios';
 
-export const generateProofreadErrors = async (input: string, language: string | undefined): Promise<any> => {
+export const languageToolProofreader = async (input: string, language: string | undefined): Promise<any> => {
 	const headersList = {
 		Accept: 'application/json',
 		'Content-Type': 'application/x-www-form-urlencoded'
