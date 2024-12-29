@@ -8,9 +8,7 @@ import { EditorContent, useEditor } from '@tiptap/react'
 import {
   getOutput,
   Highlight,
-  SpellcheckerExtension,
-  SpellcheckerProofreader,
-  useSpellcheckerProofreader
+  SpellCheck,
 } from './extensions'
 import  { CODE_BLOCK_BG_COLOR } from '../../common/CodeBlock'
 
@@ -188,11 +186,11 @@ interface ChatTextAreaEditorProps {
   styles?: any,
 }
 
-interface InternalProps extends ChatTextAreaEditorProps {
-  proofreader: SpellcheckerProofreader;
-}
+// interface InternalProps extends ChatTextAreaEditorProps {
+//   proofreader: SpellcheckerProofreader;
+// }
 
-const ChatTextAreaEditor = React.forwardRef<HTMLTextAreaElement, InternalProps>(({
+const ChatTextAreaEditor = React.forwardRef<HTMLTextAreaElement, ChatTextAreaEditorProps>(({
   value,
   disabled,
   onChange,
@@ -207,7 +205,6 @@ const ChatTextAreaEditor = React.forwardRef<HTMLTextAreaElement, InternalProps>(
   onScroll,
   placeholder,
   styles,
-  proofreader,
   autofocus = true
 }, textAreaRef) => {
 
@@ -261,7 +258,7 @@ const ChatTextAreaEditor = React.forwardRef<HTMLTextAreaElement, InternalProps>(
     }
   }, [textAreaRef])
 
-
+  
   const editor = useEditor({
     extensions: [
       StarterKit.configure({
@@ -272,12 +269,7 @@ const ChatTextAreaEditor = React.forwardRef<HTMLTextAreaElement, InternalProps>(
       Placeholder.configure({
         placeholder
       }),
-      SpellcheckerExtension.configure({ 
-        proofreader,
-        uiStrings: {
-            noSuggestions: 'No suggestions found'
-        }
-      })
+      SpellCheck
     ],
     autofocus,
     editable: !disabled,
@@ -367,11 +359,11 @@ const ChatTextAreaEditor = React.forwardRef<HTMLTextAreaElement, InternalProps>(
 
 //might need to use a wrapper if the dictionary needs to be loaded async
 //shouldn't need to but as a last resort
-const Wrapper = React.forwardRef<HTMLTextAreaElement, ChatTextAreaEditorProps>((props, ref) => {
+// const Wrapper = React.forwardRef<HTMLTextAreaElement, ChatTextAreaEditorProps>((props, ref) => {
 
-  const proofreader = useSpellcheckerProofreader()
-  return !proofreader ? <div>Loading...</div> 
-    : <ChatTextAreaEditor ref={ref} {...props} proofreader={proofreader}/>
-})
+//   const proofreader = useSpellcheckerProofreader()
+//   return !proofreader ? <div>Loading...</div> 
+//     : <ChatTextAreaEditor ref={ref} {...props} proofreader={proofreader}/>
+// })
 
-export default Wrapper
+export default ChatTextAreaEditor
