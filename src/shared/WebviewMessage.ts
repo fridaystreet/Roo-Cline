@@ -43,7 +43,7 @@ export interface WebviewMessage {
 		| "fuzzyMatchThreshold"
 		| "preferredLanguage"
 		| "writeDelayMs"
-    | "getDictionary"
+        | "getDictionary"
 		| "enhancePrompt"
 		| "enhancedPrompt"
 		| "draggedImages"

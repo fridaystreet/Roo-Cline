@@ -17,10 +17,7 @@ interface OpenRouterApiStreamUsageChunk extends ApiStreamUsageChunk {
     fullResponseText: string;
 }
 
-// Interface for providers that support single completions
-export interface SingleCompletionHandler {
-    completePrompt(prompt: string): Promise<string>
-}
+import { SingleCompletionHandler } from ".."
 
 export class OpenRouterHandler implements ApiHandler, SingleCompletionHandler {
 	private options: ApiHandlerOptions
