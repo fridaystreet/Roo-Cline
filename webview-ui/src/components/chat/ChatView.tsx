@@ -27,6 +27,7 @@ import ChatTextArea from "./ChatTextArea"
 import TaskHeader from "./TaskHeader"
 import { AudioType } from "../../../../src/shared/WebviewMessage"
 import { validateCommand } from "../../utils/command-validation"
+import { TipTapHTMLTextAreaElement } from './ChatTextAreaEditor'
 
 interface ChatViewProps {
 	isHidden: boolean
@@ -47,7 +48,7 @@ const ChatView = ({ isHidden, showAnnouncement, hideAnnouncement, showHistoryVie
 	const apiMetrics = useMemo(() => getApiMetrics(modifiedMessages), [modifiedMessages])
 
 	const [inputValue, setInputValue] = useState("")
-	const textAreaRef = useRef<HTMLTextAreaElement>(null)
+	const textAreaRef = useRef<TipTapHTMLTextAreaElement>(null)
 	const [textAreaDisabled, setTextAreaDisabled] = useState(false)
 	const [selectedImages, setSelectedImages] = useState<string[]>([])
 

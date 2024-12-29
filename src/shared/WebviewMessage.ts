@@ -28,6 +28,7 @@ export interface WebviewMessage {
 		| "openMention"
 		| "cancelTask"
 		| "refreshOpenRouterModels"
+		| "refreshOpenAiModels"
 		| "alwaysAllowBrowser"
 		| "alwaysAllowMcp"
 		| "playSound"
@@ -43,6 +44,9 @@ export interface WebviewMessage {
 		| "preferredLanguage"
 		| "writeDelayMs"
     | "getDictionary"
+		| "enhancePrompt"
+		| "enhancedPrompt"
+		| "draggedImages"
 	text?: string
 	disabled?: boolean
 	askResponse?: ClineAskResponse
@@ -52,10 +56,10 @@ export interface WebviewMessage {
 	value?: number
 	commands?: string[]
 	audioType?: AudioType
-	// For toggleToolAutoApprove
 	serverName?: string
 	toolName?: string
 	alwaysAllow?: boolean
+	dataUrls?: string[]
 }
 
 export type ClineAskResponse = "yesButtonClicked" | "noButtonClicked" | "messageResponse"

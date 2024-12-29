@@ -17,7 +17,9 @@ export interface ExtensionMessage {
 		| "invoke"
 		| "partialMessage"
 		| "openRouterModels"
+		| "openAiModels"
 		| "mcpServers"
+		| "enhancedPrompt"
     | "dictionary"
 	text?: string
 	action?:
@@ -34,7 +36,8 @@ export interface ExtensionMessage {
 	filePaths?: string[]
 	partialMessage?: ClineMessage
 	openRouterModels?: Record<string, ModelInfo>
-	mcpServers?: McpServer[],
+	openAiModels?: string[]
+	mcpServers?: McpServer[]
   dictionary?: Dictionary
 }
 

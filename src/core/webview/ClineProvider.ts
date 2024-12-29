@@ -23,6 +23,7 @@ import { openMention } from "../mentions"
 import { getNonce } from "./getNonce"
 import { getUri } from "./getUri"
 import { playSound, setSoundEnabled, setSoundVolume } from "../../utils/sound"
+import { enhancePrompt } from "../../utils/enhance-prompt"
 import { getDictionary } from "../../shared/dictionaries"
 /*
 https://github.com/microsoft/vscode-webview-ui-toolkit-samples/blob/main/default/weather-webview/src/providers/WeatherViewProvider.ts
@@ -520,6 +521,11 @@ export class ClineProvider implements vscode.WebviewViewProvider {
 					case "refreshOpenRouterModels":
 						await this.refreshOpenRouterModels()
 						break
+					case "refreshOpenAiModels":
+						const { apiConfiguration } = await this.getState()
+						const openAiModels = await this.getOpenAiModels(apiConfiguration.openAiBaseUrl, apiConfiguration.openAiApiKey)
+						this.postMessageToWebview({ type: "openAiModels", openAiModels })
+						break
 					case "openImage":
 						openImage(message.text!)
 						break
@@ -649,6 +655,26 @@ export class ClineProvider implements vscode.WebviewViewProvider {
               vscode.window.showErrorMessage("Failed to get dictionary")
             }
             break
+					case "enhancePrompt":
+						if (message.text) {
+							try {
+								const { apiConfiguration } = await this.getState()
+								const enhanceConfig = {
+									...apiConfiguration,
+									apiProvider: "openrouter" as const,
+									openRouterModelId: "gpt-4o",
+								}
+								const enhancedPrompt = await enhancePrompt(enhanceConfig, message.text)
+								await this.postMessageToWebview({
+									type: "enhancedPrompt",
+									text: enhancedPrompt
+								})
+							} catch (error) {
+								console.error("Error enhancing prompt:", error)
+								vscode.window.showErrorMessage("Failed to enhance prompt")
+							}
+						}
+						break
 				}
 			},
 			null,
@@ -713,6 +739,32 @@ export class ClineProvider implements vscode.WebviewViewProvider {
 				return []
 			}
 			const response = await axios.get(`${baseUrl}/v1/models`)
+			const modelsArray = response.data?.data?.map((model: any) => model.id) || []
+			const models = [...new Set<string>(modelsArray)]
+			return models
+		} catch (error) {
+			return []
+		}
+	}
+
+	// OpenAi
+
+	async getOpenAiModels(baseUrl?: string, apiKey?: string) {
+		try {
+			if (!baseUrl) {
+				return []
+			}
+
+			if (!URL.canParse(baseUrl)) {
+				return []
+			}
+
+			const config: Record<string, any> = {}
+			if (apiKey) {
+				config["headers"] = { Authorization: `Bearer ${apiKey}` }
+			}
+
+			const response = await axios.get(`${baseUrl}/models`, config)
 			const modelsArray = response.data?.data?.map((model: any) => model.id) || []
 			const models = [...new Set<string>(modelsArray)]
 			return models

@@ -4,7 +4,7 @@ import Typography from '@tiptap/extension-typography'
 import StarterKit from '@tiptap/starter-kit'
 import Placeholder from '@tiptap/extension-placeholder'
 import { isEqual } from 'lodash'
-import { EditorContent, useEditor } from '@tiptap/react'
+import { EditorContent, useEditor, Editor } from '@tiptap/react'
 import {
   getOutput,
   Highlight,
@@ -186,11 +186,11 @@ interface ChatTextAreaEditorProps {
   styles?: any,
 }
 
-// interface InternalProps extends ChatTextAreaEditorProps {
-//   proofreader: SpellcheckerProofreader;
-// }
+export interface TipTapHTMLTextAreaElement extends HTMLTextAreaElement {
+  _tiptap: Editor | undefined | null
+}
 
-const ChatTextAreaEditor = React.forwardRef<HTMLTextAreaElement, ChatTextAreaEditorProps>(({
+export const ChatTextAreaEditor = React.forwardRef<TipTapHTMLTextAreaElement, ChatTextAreaEditorProps>(({
   value,
   disabled,
   onChange,
@@ -317,16 +317,19 @@ const ChatTextAreaEditor = React.forwardRef<HTMLTextAreaElement, ChatTextAreaEdi
   })
 
   useEffect(() => {
-    if (textAreaRef) {
+    if (textAreaRef && editor) {
       const ref = typeof textAreaRef === 'function' ? null : textAreaRef.current;
-      ref?.addEventListener('change', handleOnChange);
-      ref?.addEventListener('select', handleOnSelect);
-      return () => {
-        ref?.removeEventListener('change', handleOnChange)
-        ref?.removeEventListener('select', handleOnChange)
+      if (ref && !ref._tiptap) {
+        ref._tiptap = editor
+        ref.addEventListener('change', handleOnChange);
+        ref.addEventListener('select', handleOnSelect);
+        return () => {
+          ref.removeEventListener('change', handleOnChange)
+          ref.removeEventListener('select', handleOnChange)
+        }
       }
     }
-  }, [textAreaRef, handleOnChange, handleOnSelect]);
+  }, [editor, textAreaRef, handleOnChange, handleOnSelect]);
 
   useEffect(() => {
 		if (!editor || value === undefined || isEqual(valueRef.current, value)) return;
@@ -366,4 +369,3 @@ const ChatTextAreaEditor = React.forwardRef<HTMLTextAreaElement, ChatTextAreaEdi
 //     : <ChatTextAreaEditor ref={ref} {...props} proofreader={proofreader}/>
 // })
 
-export default ChatTextAreaEditor

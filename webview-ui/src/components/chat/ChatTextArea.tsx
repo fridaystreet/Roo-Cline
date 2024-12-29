@@ -11,9 +11,12 @@ import {
 import { MAX_IMAGES_PER_MESSAGE } from "./ChatView"
 import ContextMenu from "./ContextMenu"
 import Thumbnails from "../common/Thumbnails"
-import ChatTextAreaEditor from "./ChatTextAreaEditor/ChatTextAreaEditor"
-
-declare const vscode: any;
+import { vscode } from "../../utils/vscode"
+import { 
+  ChatTextAreaEditor,
+  EnhancePromptButton, 
+  TipTapHTMLTextAreaElement 
+} from './ChatTextAreaEditor'
 
 interface ChatTextAreaProps {
 	inputValue: string
@@ -28,7 +31,7 @@ interface ChatTextAreaProps {
 	onHeightChange?: (height: number) => void
 }
 
-const ChatTextArea = forwardRef<HTMLTextAreaElement, ChatTextAreaProps>(
+const ChatTextArea = forwardRef<TipTapHTMLTextAreaElement, ChatTextAreaProps>(
 	(
 		{
 			inputValue,
@@ -44,14 +47,16 @@ const ChatTextArea = forwardRef<HTMLTextAreaElement, ChatTextAreaProps>(
 		},
 		ref,
 	) => {
-		const { filePaths } = useExtensionState()
+		const { filePaths, apiConfiguration } = useExtensionState()
 		const [isTextAreaFocused, setIsTextAreaFocused] = useState(false)
+
+
 		const [thumbnailsHeight, setThumbnailsHeight] = useState(0)
 		const [textAreaBaseHeight, setTextAreaBaseHeight] = useState<number | undefined>(undefined)
 		const [showContextMenu, setShowContextMenu] = useState(false)
 		const [cursorPosition, setCursorPosition] = useState(0)
 		const [searchQuery, setSearchQuery] = useState("")
-		const textAreaRef = useRef<HTMLTextAreaElement | null>(null)
+		const textAreaRef = useRef<TipTapHTMLTextAreaElement | null>(null)
 		const [isMouseDownOnMenu, setIsMouseDownOnMenu] = useState(false)
 		const [selectedMenuIndex, setSelectedMenuIndex] = useState(-1)
 		const [selectedType, setSelectedType] = useState<ContextMenuOptionType | null>(null)
@@ -406,70 +411,65 @@ const ChatTextArea = forwardRef<HTMLTextAreaElement, ChatTextAreaProps>(
 			[updateCursorPosition],
 		)
 
-
 		return (
-			<div
-				style={{
-					padding: "10px 15px",
-					opacity: textAreaDisabled ? 0.5 : 1,
-					position: "relative",
-					display: "flex",
-				}}
-				onDrop={async (e) => {
-					console.log("onDrop called")
-					e.preventDefault()
-					const files = Array.from(e.dataTransfer.files)
-					const text = e.dataTransfer.getData("text")
-					if (text) {
-						const newValue =
-							inputValue.slice(0, cursorPosition) + text + inputValue.slice(cursorPosition)
-						setInputValue(newValue)
-						const newCursorPosition = cursorPosition + text.length
-						setCursorPosition(newCursorPosition)
-						setIntendedCursorPosition(newCursorPosition)
-						return
-					}
-					const acceptedTypes = ["png", "jpeg", "webp"]
-					const imageFiles = files.filter((file) => {
-						const [type, subtype] = file.type.split("/")
-						return type === "image" && acceptedTypes.includes(subtype)
-					})
-					if (!shouldDisableImages && imageFiles.length > 0) {
-						const imagePromises = imageFiles.map((file) => {
-							return new Promise<string | null>((resolve) => {
-								const reader = new FileReader()
-								reader.onloadend = () => {
-									if (reader.error) {
-										console.error("Error reading file:", reader.error)
-										resolve(null)
-									} else {
-										const result = reader.result
-										console.log("File read successfully", result)
-										resolve(typeof result === "string" ? result : null)
-									}
+			<div style={{
+				padding: "10px 15px",
+				opacity: textAreaDisabled ? 0.5 : 1,
+				position: "relative",
+				display: "flex",
+			}}
+			onDrop={async (e) => {
+				e.preventDefault()
+				const files = Array.from(e.dataTransfer.files)
+				const text = e.dataTransfer.getData("text")
+				if (text) {
+					const newValue =
+						inputValue.slice(0, cursorPosition) + text + inputValue.slice(cursorPosition)
+					setInputValue(newValue)
+					const newCursorPosition = cursorPosition + text.length
+					setCursorPosition(newCursorPosition)
+					setIntendedCursorPosition(newCursorPosition)
+					return
+				}
+				const acceptedTypes = ["png", "jpeg", "webp"]
+				const imageFiles = files.filter((file) => {
+					const [type, subtype] = file.type.split("/")
+					return type === "image" && acceptedTypes.includes(subtype)
+				})
+				if (!shouldDisableImages && imageFiles.length > 0) {
+					const imagePromises = imageFiles.map((file) => {
+						return new Promise<string | null>((resolve) => {
+							const reader = new FileReader()
+							reader.onloadend = () => {
+								if (reader.error) {
+									console.error("Error reading file:", reader.error)
+									resolve(null)
+								} else {
+									const result = reader.result
+									resolve(typeof result === "string" ? result : null)
 								}
-								reader.readAsDataURL(file)
-							})
-						})
-						const imageDataArray = await Promise.all(imagePromises)
-						const dataUrls = imageDataArray.filter((dataUrl): dataUrl is string => dataUrl !== null)
-						if (dataUrls.length > 0) {
-							setSelectedImages((prevImages) => [...prevImages, ...dataUrls].slice(0, MAX_IMAGES_PER_MESSAGE))
-							if (typeof vscode !== 'undefined') {
-								vscode.postMessage({
-									type: 'draggedImages',
-									dataUrls: dataUrls
-								})
 							}
-						} else {
-							console.warn("No valid images were processed")
+							reader.readAsDataURL(file)
+						})
+					})
+					const imageDataArray = await Promise.all(imagePromises)
+					const dataUrls = imageDataArray.filter((dataUrl): dataUrl is string => dataUrl !== null)
+					if (dataUrls.length > 0) {
+						setSelectedImages((prevImages) => [...prevImages, ...dataUrls].slice(0, MAX_IMAGES_PER_MESSAGE))
+						if (typeof vscode !== 'undefined') {
+							vscode.postMessage({
+								type: 'draggedImages',
+								dataUrls: dataUrls
+							})
 						}
+					} else {
+						console.warn("No valid images were processed")
 					}
-				}}
-				onDragOver={(e) => {
-					e.preventDefault()
-				}}
-			>
+				}
+			}}
+			onDragOver={(e) => {
+				e.preventDefault()
+			}}>
 				{showContextMenu && (
 					<div ref={contextMenuContainerRef}>
 						<ContextMenu
@@ -512,6 +512,7 @@ const ChatTextArea = forwardRef<HTMLTextAreaElement, ChatTextAreaProps>(
 						borderTop: 0,
 						borderBottom: thumbnailsHeight ? `${thumbnailsHeight + 6}px solid transparent` : undefined,
 						borderColor: "transparent",
+						padding: "9px 9px 25px 9px",
 						// borderRight: "54px solid transparent",
 						// borderLeft: "9px solid transparent", // NOTE: react-textarea-autosize doesn't calculate correct height when using borderLeft/borderRight so we need to use horizontal padding instead
 						// Instead of using boxShadow, we use a div with a border to better replicate the behavior when the textarea is focused
@@ -529,45 +530,19 @@ const ChatTextArea = forwardRef<HTMLTextAreaElement, ChatTextAreaProps>(
 							paddingTop: 4,
 							bottom: 14,
 							left: 22,
-							right: 67, // (54 + 9) + 4 extra padding
+							right: 67,
 							zIndex: 2,
 						}}
 					/>
 				)}
-				<div
-					style={{
-						position: "absolute",
-						right: 28,
-						display: "flex",
-						alignItems: "flex-end",
-						height: textAreaBaseHeight || 31,
-						bottom: 18,
-						zIndex: 2,
-					}}>
-					<div style={{ display: "flex", flexDirection: "row", alignItems: "center" }}>
-						<div
-							className={`input-icon-button ${
-								shouldDisableImages ? "disabled" : ""
-							} codicon codicon-device-camera`}
-							onClick={() => {
-								if (!shouldDisableImages) {
-									onSelectImages()
-								}
-							}}
-							style={{
-								marginRight: 5.5,
-								fontSize: 16.5,
-							}}
-						/>
-						<div
-							className={`input-icon-button ${textAreaDisabled ? "disabled" : ""} codicon codicon-send`}
-							onClick={() => {
-								if (!textAreaDisabled) {
-									onSend()
-								}
-							}}
-							style={{ fontSize: 15 }}></div>
-					</div>
+				<div className="button-row" style={{ position: "absolute", right: 20, display: "flex", alignItems: "center", height: 31, bottom: 8, zIndex: 2, justifyContent: "flex-end" }}>
+				  <span style={{ display: "flex", alignItems: "center", gap: 12 }}>
+				    {apiConfiguration?.apiProvider === "openrouter" && (
+				      <EnhancePromptButton editor={textAreaRef?.current?._tiptap} />
+				    )}
+				    <span className={`input-icon-button ${shouldDisableImages ? "disabled" : ""} codicon codicon-device-camera`} onClick={() => !shouldDisableImages && onSelectImages()} style={{ fontSize: 16.5 }} />
+				    <span className={`input-icon-button ${textAreaDisabled ? "disabled" : ""} codicon codicon-send`} onClick={() => !textAreaDisabled && onSend()} style={{ fontSize: 15 }} />
+				  </span>
 				</div>
 			</div>
 		)
