@@ -12,13 +12,22 @@ export const getOutput = (editor: Editor) => {
   }
 }
 
+// declare module '@tiptap/core' {
+//   // tslint:disable-next-line:interface-name
+//   interface Commands<ReturnType> {
+//     getOutput: {
+//       getOutput: () => ReturnType
+//     }
+//   }
+// }
+
 // export const GetOutput = Extension.create({
 //   name: 'getOutput',
 //   addCommands() {
 //     return {
 //       getOutput: () => () => {
 //         return getOutput(this.editor)
-//       },
+//       }
 //     }
 //   }
 // })

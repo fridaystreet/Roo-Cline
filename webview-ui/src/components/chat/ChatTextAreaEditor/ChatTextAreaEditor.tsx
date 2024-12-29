@@ -9,6 +9,7 @@ import {
   getOutput,
   Highlight,
   SpellCheck,
+  AIExtension
 } from './extensions'
 import  { CODE_BLOCK_BG_COLOR } from '../../common/CodeBlock'
 
@@ -269,7 +270,10 @@ export const ChatTextAreaEditor = React.forwardRef<TipTapHTMLTextAreaElement, Ch
       Placeholder.configure({
         placeholder
       }),
-      SpellCheck
+      SpellCheck,
+      AIExtension.configure({
+        enhancingMessage: 'Generating new content...',
+      })
     ],
     autofocus,
     editable: !disabled,

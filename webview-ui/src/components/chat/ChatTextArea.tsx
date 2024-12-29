@@ -512,7 +512,6 @@ const ChatTextArea = forwardRef<TipTapHTMLTextAreaElement, ChatTextAreaProps>(
 						borderTop: 0,
 						borderBottom: thumbnailsHeight ? `${thumbnailsHeight + 6}px solid transparent` : undefined,
 						borderColor: "transparent",
-						padding: "9px 9px 25px 9px",
 						// borderRight: "54px solid transparent",
 						// borderLeft: "9px solid transparent", // NOTE: react-textarea-autosize doesn't calculate correct height when using borderLeft/borderRight so we need to use horizontal padding instead
 						// Instead of using boxShadow, we use a div with a border to better replicate the behavior when the textarea is focused

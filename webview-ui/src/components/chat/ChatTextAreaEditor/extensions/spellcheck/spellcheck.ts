@@ -3,9 +3,9 @@ import createProofreadPlugin from './proofreadPlugin'
 import { createSpellCheckEnabledStore } from './utils'
 import { generateProofreadErrors } from './languageToolReader'
 import { createSuggestionBox } from './createSuggestionBox'
-import * as vscode from 'vscode'
 
 import './suggestion.css';
+
 
 const spellCheckEnabledStore = createSpellCheckEnabledStore(() => true)
 const proofreadPlugin = createProofreadPlugin(
@@ -14,7 +14,7 @@ const proofreadPlugin = createProofreadPlugin(
   createSuggestionBox, // Suggestion box function
   spellCheckEnabledStore, // Reactive store to toggle spell checking,
   undefined, // Custom text function
-  vscode.env.language // Language of the editor
+  window.navigator.language // Language of the editor
 );
 
 // typescript definition of commands
