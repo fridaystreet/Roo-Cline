@@ -1,6 +1,6 @@
 import axios, { type AxiosRequestConfig, type AxiosResponse } from 'axios';
 
-export const generateProofreadErrors = async (input: string) => {
+export const generateProofreadErrors = async (input: string, language: string | undefined): Promise<any> => {
 	const headersList = {
 		Accept: 'application/json',
 		'Content-Type': 'application/x-www-form-urlencoded'
@@ -8,7 +8,7 @@ export const generateProofreadErrors = async (input: string) => {
 
 	// Format the data for LanguageTool's API
 	const bodyContent = new URLSearchParams({
-		language: 'en-US',
+		language: language || 'en-US',
 		text: input
 	}).toString();
 
