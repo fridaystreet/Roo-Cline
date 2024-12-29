@@ -60,6 +60,7 @@ export interface WebviewMessage {
 	toolName?: string
 	alwaysAllow?: boolean
 	dataUrls?: string[]
+	values?: Record<string, any>
 }
 
 export type ClineAskResponse = "yesButtonClicked" | "noButtonClicked" | "messageResponse"
