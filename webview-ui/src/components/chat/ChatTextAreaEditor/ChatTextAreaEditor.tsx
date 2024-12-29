@@ -38,7 +38,7 @@ const StyledEditor = styled.div`
     content: attr(data-placeholder);
     float: left;
     pointer-events: none;
-    opacity: 0.6;
+    opacity: 0.5;
     height: 0;
   }
 
