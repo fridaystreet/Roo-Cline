@@ -1,4 +1,5 @@
 export * from './getOutput'
+export * from './onReturnHandler'
 export * from './highlight'
 export * from './spellcheck'
 export * from './ai'

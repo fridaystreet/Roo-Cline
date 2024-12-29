@@ -1,9 +1,9 @@
-import { Editor } from '@tiptap/core'
+import { Extension, Editor, JSONContent } from '@tiptap/core'
 
 export const getOutput = (editor: Editor) => {
-  const json = editor.getJSON();
-  const html = editor.getHTML();
-  const plainText = editor.getText({ blockSeparator: "\n\n" }).trim();
+  const json: JSONContent = editor.getJSON();
+  const html: string = editor.getHTML();
+  const plainText: string = editor.getText({ blockSeparator: "\n\n" }).trim();
 
   return {
     json,
@@ -12,22 +12,22 @@ export const getOutput = (editor: Editor) => {
   }
 }
 
-// declare module '@tiptap/core' {
-//   // tslint:disable-next-line:interface-name
-//   interface Commands<ReturnType> {
-//     getOutput: {
-//       getOutput: () => ReturnType
-//     }
-//   }
-// }
+declare module '@tiptap/core' {
+  // tslint:disable-next-line:interface-name
+  interface Commands {
+    getOutput: {
+      getOutput: () => any
+    }
+  }
+}
 
-// export const GetOutput = Extension.create({
-//   name: 'getOutput',
-//   addCommands() {
-//     return {
-//       getOutput: () => () => {
-//         return getOutput(this.editor)
-//       }
-//     }
-//   }
-// })
+export const GetOutput = Extension.create({
+  name: 'getOutput',
+  addCommands() {
+    return {
+      getOutput: () => () => {
+        return getOutput(this.editor)
+      }
+    }
+  }
+})

@@ -6,11 +6,12 @@ import Placeholder from '@tiptap/extension-placeholder'
 import { isEqual } from 'lodash'
 import { useEditor, Editor } from '@tiptap/react'
 import {
-  getOutput,
+  GetOutput,
   Highlight,
   SpellCheck,
   AIExtension,
-  useSlashCommands,
+  // useSlashCommands,
+  OnReturnHandler,
   SlashCommandEditor
 } from './extensions'
 import  { CODE_BLOCK_BG_COLOR } from '../../common/CodeBlock'
@@ -118,6 +119,7 @@ const StyledEditor = styled.div`
       color: #f78383;
     }
 
+
     pre {
       background: ${CODE_BLOCK_BG_COLOR};
       border-radius: 0.5rem;
@@ -154,6 +156,11 @@ const StyledEditor = styled.div`
       margin: 2rem 0;
     }
     
+    > pre, blockquote, hr {
+      margin-left: 10px;
+      margin-right: 55px;
+    }
+
     :first-child {
       margin-top: 0;
     }
@@ -182,6 +189,7 @@ interface ChatTextAreaEditorProps {
   onMouseUp?: (e: any, view: any) => void;
   onHeightChange?: (height: number) => void;
   onScroll?: (e: React.UIEvent<HTMLDivElement>) => void;
+  onReturn?: (arg0: Object) => void;
   placeholder?: string;
   minRows?: number;
   maxRows?: number;
@@ -214,7 +222,7 @@ export const ChatTextAreaEditor = React.forwardRef<TipTapHTMLTextAreaElement, Ch
   const valueRef = useRef<string>(value)
   const containerRef = useRef<HTMLDivElement>(null)
   
-  const SlashCommands = useSlashCommands()
+  // const SlashCommands = useSlashCommands()
 
   useEffect(() => {
     if (!containerRef.current || typeof onHeightChange !== 'function') return
@@ -267,7 +275,7 @@ export const ChatTextAreaEditor = React.forwardRef<TipTapHTMLTextAreaElement, Ch
   const editor = useEditor({
     extensions: [
       StarterKit.configure({
-        codeBlock: false,
+        // codeBlock: false,
       }),
       Highlight,
       Typography,
@@ -279,6 +287,8 @@ export const ChatTextAreaEditor = React.forwardRef<TipTapHTMLTextAreaElement, Ch
         enhancingMessage: 'Generating new content...',
       }),
       //SlashCommands
+      GetOutput,
+      OnReturnHandler
     ],
     autofocus,
     editable: !disabled,
@@ -290,7 +300,16 @@ export const ChatTextAreaEditor = React.forwardRef<TipTapHTMLTextAreaElement, Ch
             onKeyUp(event, view)
           }
         },
-        keydown: (view, event) => {
+        keydown: (view, event: any) => {
+          if (event.key === "Enter" && !event.shiftKey) {
+            const { selection } = view.state;
+            const { anchor } = selection;
+            const nodes: any[] = []
+            view.state.doc.nodesBetween(anchor - 1, anchor, (node, pos) => {
+              nodes.push(node.type.name);
+            })
+            if (nodes[0] !== 'paragraph') return
+          }
           if (typeof onKeyDown === 'function') {
             onKeyDown(event, view)
           }
@@ -308,7 +327,7 @@ export const ChatTextAreaEditor = React.forwardRef<TipTapHTMLTextAreaElement, Ch
       }
     },
     onUpdate({ editor }) {
-      const value = getOutput(editor).plainText
+      const value = editor.commands.getOutput().plainText
       valueRef.current = value;
       sendTextAreaEvent('change', { value })
     },
@@ -368,13 +387,3 @@ export const ChatTextAreaEditor = React.forwardRef<TipTapHTMLTextAreaElement, Ch
     </>
   )
 })
-
-//might need to use a wrapper if the dictionary needs to be loaded async
-//shouldn't need to but as a last resort
-// const Wrapper = React.forwardRef<HTMLTextAreaElement, ChatTextAreaEditorProps>((props, ref) => {
-
-//   const proofreader = useSpellcheckerProofreader()
-//   return !proofreader ? <div>Loading...</div> 
-//     : <ChatTextAreaEditor ref={ref} {...props} proofreader={proofreader}/>
-// })
-

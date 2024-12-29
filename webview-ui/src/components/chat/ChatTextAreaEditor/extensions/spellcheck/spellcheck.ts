@@ -35,7 +35,7 @@ export const SpellCheck = Extension.create({
   addCommands() {
     return {
       toggleSpellcheck: () => () => {
-        spellCheckEnabledStore.set(!spellCheckEnabledStore.get());
+        spellCheckEnabledStore.set(!spellCheckEnabledStore.get())
         return true;
       }
     }
