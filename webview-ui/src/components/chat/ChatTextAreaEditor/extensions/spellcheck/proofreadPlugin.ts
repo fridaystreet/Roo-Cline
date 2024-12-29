@@ -39,10 +39,11 @@ const spellcheckkey = new PluginKey('proofreadPlugin');
 
 export function createProofreadPlugin(
 	debounceTimeMS: number,
-	generateProofreadErrors: (text: string) => GenerateProofreadErrorsResponse,
+	generateProofreadErrors: (text: string, language: string | undefined) => GenerateProofreadErrorsResponse,
 	createSuggestionBox: CreateSuggestionBox,
 	getSpellCheckEnabled: ReturnType<typeof createSpellCheckEnabledStore>,
-	getCustomText?: GetCustomText
+	getCustomText?: GetCustomText,
+  language?: string
 ) {
 	const debouncedCheck = debounce(check, debounceTimeMS);
 	let editorview: EditorView | undefined = undefined;
@@ -114,7 +115,7 @@ export function createProofreadPlugin(
 
 	async function proofread(text: string): Promise<Problem[]> {
 		// console.log('proofreading: ' + text);
-		const response = await generateProofreadErrors(text);
+		const response = await generateProofreadErrors(text, language);
 		const data = response;
 		const errors = data.matches;
 		const problems: Problem[] = [];
