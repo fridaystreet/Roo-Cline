@@ -48,13 +48,11 @@ const getMessageHandler = (editor: Editor, storage: any) => (event: MessageEvent
     }
   }
 }
-
 export const AIExtension = Extension.create({
   name: 'ai',
 
   addOptions() {
     return {
-      processCommand: () => null,
       onError: ()=> null,
       onLoading: () => null,
       onSuccess: () => null
