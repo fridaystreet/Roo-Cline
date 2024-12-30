@@ -43,6 +43,7 @@ export interface ApiHandlerOptions {
 	deepSeekApiKey?: string
 	deepSeekModelId?: string
 	includeMaxTokens?: boolean
+  spellcheck?: boolean
 }
 
 export type ApiConfiguration = ApiHandlerOptions & {

@@ -31,6 +31,7 @@ export const buildCommands: any = (apiConfiguration: ApiConfiguration, setApiCon
     }),
     title: "Spellcheck",
     command: ({ editor }: any) => {
+      setApiConfiguration({ ...apiConfiguration, spellcheck: !editor.storage.spellcheck.spellcheckEnabled })
       const { from, to } = editor.commands.getFromLastMatch('/')
       editor
         .chain()

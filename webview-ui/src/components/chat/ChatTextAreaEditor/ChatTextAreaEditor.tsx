@@ -14,7 +14,9 @@ import {
 import { all, createLowlight } from 'lowlight'
 import { isEqual } from 'lodash'
 import { useEditor, Editor } from '@tiptap/react'
+import { useExtensionState } from "../../../context/ExtensionStateContext"
 import {
+  // GetExtensionState,
   GetOutput,
   GetSelectedText,
   GetFromLastMatch,
@@ -78,6 +80,7 @@ export const ChatTextAreaEditor = React.forwardRef<TipTapHTMLTextAreaElement, Ch
   const containerRef = useRef<HTMLDivElement>(null)
   
   const slashCommands = useSlashCommands()
+  const { apiConfiguration } = useExtensionState()
 
   useEffect(() => {
     if (!containerRef.current || typeof onHeightChange !== 'function') return
@@ -129,6 +132,9 @@ export const ChatTextAreaEditor = React.forwardRef<TipTapHTMLTextAreaElement, Ch
   
   const editor = useEditor({
     extensions: [
+      // GetExtensionState.configure({
+      //   state
+      // }),
       GetOutput,
       GetSelectedText,
       GetFromLastMatch,
@@ -171,6 +177,7 @@ export const ChatTextAreaEditor = React.forwardRef<TipTapHTMLTextAreaElement, Ch
         placeholder
       }),
       SpellCheck.configure({
+        enabled: apiConfiguration?.spellcheck,
         excludeNodes: ['codeBlock']
       }),
       AIExtension.configure({

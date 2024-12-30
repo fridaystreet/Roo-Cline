@@ -76,6 +76,7 @@ type GlobalStateKey =
 	| "fuzzyMatchThreshold"
 	| "preferredLanguage" // Language setting for Cline's communication
 	| "writeDelayMs"
+  | "spellcheck"
 
 export const GlobalFileNames = {
 	apiConversationHistory: "api_conversation_history.json",
@@ -423,6 +424,7 @@ export class ClineProvider implements vscode.WebviewViewProvider {
 								openRouterModelId,
 								openRouterModelInfo,
 								openRouterUseMiddleOutTransform,
+                spellcheck
 							} = message.apiConfiguration
 							await this.updateGlobalState("apiProvider", apiProvider)
 							await this.updateGlobalState("apiModelId", apiModelId)
@@ -450,6 +452,7 @@ export class ClineProvider implements vscode.WebviewViewProvider {
 							await this.updateGlobalState("openRouterModelId", openRouterModelId)
 							await this.updateGlobalState("openRouterModelInfo", openRouterModelInfo)
 							await this.updateGlobalState("openRouterUseMiddleOutTransform", openRouterUseMiddleOutTransform)
+              await this.updateGlobalState("spellcheck", spellcheck)
 							if (this.cline) {
 								this.cline.api = buildApiHandler(message.apiConfiguration)
 							}
@@ -1168,6 +1171,7 @@ export class ClineProvider implements vscode.WebviewViewProvider {
 			preferredLanguage,
 			writeDelayMs,
 			screenshotQuality,
+      spellcheck
 		] = await Promise.all([
 			this.getGlobalState("apiProvider") as Promise<ApiProvider | undefined>,
 			this.getGlobalState("apiModelId") as Promise<string | undefined>,
@@ -1212,6 +1216,7 @@ export class ClineProvider implements vscode.WebviewViewProvider {
 			this.getGlobalState("preferredLanguage") as Promise<string | undefined>,
 			this.getGlobalState("writeDelayMs") as Promise<number | undefined>,
 			this.getGlobalState("screenshotQuality") as Promise<number | undefined>,
+      this.getGlobalState("spellcheck") as Promise<boolean | undefined>,
 		])
 
 		let apiProvider: ApiProvider
@@ -1256,6 +1261,7 @@ export class ClineProvider implements vscode.WebviewViewProvider {
 				openRouterModelId,
 				openRouterModelInfo,
 				openRouterUseMiddleOutTransform,
+        spellcheck
 			},
 			lastShownAnnouncementId,
 			customInstructions,

@@ -27,12 +27,16 @@ export const SpellCheck = Extension.create({
   name: 'spellcheck',
   addOptions() {
     return {
+      enabled: false,
       excludeNodes: []
     }
   },
+  onBeforeCreate() {
+    spellCheckEnabledStore.set(this.options.enabled)
+  },
   addStorage() {
     return {
-      spellcheckEnabled: false
+      spellcheckEnabled: this.options.enabled
     }
   },
   addCommands() {

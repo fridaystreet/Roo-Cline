@@ -1,3 +1,4 @@
+// export * from './extensionState'
 export * from './getOutput'
 export * from './getSelectedText'
 export * from './getFromLastMatch'
