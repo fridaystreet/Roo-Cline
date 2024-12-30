@@ -169,7 +169,7 @@ export const ChatTextAreaEditor = React.forwardRef<TipTapHTMLTextAreaElement, Ch
         tightListClass: 'tight',     // Add class to <ul> allowing you to remove <p> margins when tight
         bulletListMarker: '-',       // <li> prefix in markdown output
         linkify: true,              // Create links from "https://..." text
-        breaks: true,               // New lines (\n) in markdown input are converted to <br>
+        breaks: false,               // New lines (\n) in markdown input are converted to <br>
         transformPastedText: false,  // Allow to paste markdown text in the editor
         transformCopiedText: false,  // Copied text is transformed to markdown
       }),
