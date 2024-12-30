@@ -10,15 +10,7 @@ import { createSuggestionBox } from './createSuggestionBox'
 import './suggestion.css';
 
 
-const spellCheckEnabledStore = createSpellCheckEnabledStore(() => true)
-const proofreadPlugin = createProofreadPlugin(
-  1000, // Debounce time in ms
-  languageToolProofreader as never, // function to call proofreading service
-  createSuggestionBox, // Suggestion box function
-  spellCheckEnabledStore, // Reactive store to toggle spell checking,
-  undefined, // Custom text function
-  window.navigator.language // Language of the editor
-);
+const spellCheckEnabledStore = createSpellCheckEnabledStore(() => false)
 
 // typescript definition of commands
 declare module '@tiptap/core' {
@@ -33,6 +25,11 @@ declare module '@tiptap/core' {
 
 export const SpellCheck = Extension.create({
   name: 'spellcheck',
+  addOptions() {
+    return {
+      excludeNodes: []
+    }
+  },
   addStorage() {
     return {
       spellcheckEnabled: false
@@ -41,13 +38,22 @@ export const SpellCheck = Extension.create({
   addCommands() {
     return {
       toggleSpellcheck: () => () => {
-        spellCheckEnabledStore.set(!spellCheckEnabledStore.get())
-        this.storage.spellcheckEnabled = spellCheckEnabledStore.get()
+        this.storage.spellcheckEnabled = !spellCheckEnabledStore.get()
+        spellCheckEnabledStore.set(this.storage.spellcheckEnabled)
         return true;
       }
     }
   },
   addProseMirrorPlugins() {
+    const proofreadPlugin = createProofreadPlugin(
+      1000, // Debounce time in ms
+      languageToolProofreader as never, // function to call proofreading service
+      createSuggestionBox, // Suggestion box function
+      spellCheckEnabledStore, // Reactive store to toggle spell checking,
+      undefined, // Custom text function
+      window.navigator.language, // Language of the editor,
+      this.options.excludeNodes // Blocks to exclude from spell checking
+    );
     return [proofreadPlugin];
   }
 })

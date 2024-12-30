@@ -17,6 +17,7 @@ import { useEditor, Editor } from '@tiptap/react'
 import {
   GetOutput,
   GetSelectedText,
+  GetFromLastMatch,
   OnReturnHandler,
   Highlight,
   SpellCheck,
@@ -130,6 +131,7 @@ export const ChatTextAreaEditor = React.forwardRef<TipTapHTMLTextAreaElement, Ch
     extensions: [
       GetOutput,
       GetSelectedText,
+      GetFromLastMatch,
       OnReturnHandler,
       Color.configure({ types: [TextStyle.name, ListItem.name] }),
       TextStyle,
@@ -168,7 +170,9 @@ export const ChatTextAreaEditor = React.forwardRef<TipTapHTMLTextAreaElement, Ch
       Placeholder.configure({
         placeholder
       }),
-      SpellCheck,
+      SpellCheck.configure({
+        excludeNodes: ['codeBlock']
+      }),
       AIExtension.configure({
         enhancingMessage: 'Generating new content...',
       }),

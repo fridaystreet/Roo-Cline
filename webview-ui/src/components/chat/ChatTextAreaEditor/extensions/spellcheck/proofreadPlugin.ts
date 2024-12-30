@@ -43,7 +43,8 @@ export function createProofreadPlugin(
 	createSuggestionBox: CreateSuggestionBox,
 	getSpellCheckEnabled: ReturnType<typeof createSpellCheckEnabledStore>,
 	getCustomText?: GetCustomText,
-  language?: string
+  language?: string,
+  excludeTypes?: string[]
 ) {
 	const debouncedCheck = debounce(check, debounceTimeMS);
 	let editorview: EditorView | undefined = undefined;
@@ -103,8 +104,12 @@ export function createProofreadPlugin(
 	function containsOnlyTextNodes(node: ProseMirrorNode) {
 		let onlyText = true;
 
-		node.forEach((child) => {
-			if (!child.isText && child.type.name !== 'inline_math') {
+    if (excludeTypes?.includes(node.type.name)) {
+      return false
+    }
+
+    node.forEach((child) => {
+			if (!child.isText && child.type.name !== 'inline_math' && !excludeTypes?.includes(child.type.name)) {
 				onlyText = false;
 				return false;
 			}

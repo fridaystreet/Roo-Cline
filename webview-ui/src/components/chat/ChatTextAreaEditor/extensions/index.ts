@@ -1,5 +1,6 @@
 export * from './getOutput'
 export * from './getSelectedText'
+export * from './getFromLastMatch'
 export * from './onReturnHandler'
 export * from './highlight'
 export * from './spellcheck'

@@ -11,6 +11,19 @@ import {
 	// vertexModels,
 } from "../../../../../../../src/shared/api"
 
+const providers = [
+  "openroute",
+  "anthropic",
+  "gemini",
+  "deepseek",
+  "openai-native",
+  "openai",
+  "vertex",
+  "bedrock",
+  "lmstudio",
+  "ollama"
+] 
+
 export const buildCommands: any = (apiConfiguration: ApiConfiguration, setApiConfiguration: any, uriScheme: any) => createSuggestionsItems([
   {
     dynamicValues: (_: any, editor: any) => ({
@@ -18,24 +31,25 @@ export const buildCommands: any = (apiConfiguration: ApiConfiguration, setApiCon
     }),
     title: "Spellcheck",
     command: ({ editor }: any) => {
-      let { from, to }: any = editor?.commands.getSelectedText()
+      const { from, to } = editor.commands.getFromLastMatch('/')
       editor
         .chain()
         .focus()
-        .deleteRange({ from: from-1, to })
         .toggleSpellcheck()
+        .deleteRange({ from, to })
         .run()
     }
   },
-  ...["openroute","anthropic","gemini","deepseek","openai-native","openai","vertex","bedrock","lmstudio","ollama"].map((apiProvider: string) => ({
+  ...providers.map((apiProvider: string) => ({
     isVisible: () => apiConfiguration.apiProvider !== apiProvider,
     title: `Set provider - ${apiProvider}`,
     command: ({ editor }: any) => {
       setApiConfiguration({ ...apiConfiguration, apiProvider })
-      let { from, to }: any = editor?.commands.getSelectedText()
-        editor?.chain()
+      const { from, to } = editor.commands.getFromLastMatch('/')
+      editor
+        .chain()
         .focus()
-        .deleteRange({ from: from-1, to })
+        .deleteRange({ from, to })
         .run()
     }
   }))

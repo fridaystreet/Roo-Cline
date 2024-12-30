@@ -1,9 +1,31 @@
-import { EditorContent, Editor } from '@tiptap/react'
+import { EditorContent, Editor } from '@tiptap/react';
 import {
   SlashCmd,
   SlashCmdProvider
 } from "@harshtalks/slash-tiptap";
 import { useSlashCommands } from './useSlashCommands';
+import styled from 'styled-components';
+
+const SlashCmdItem = styled(SlashCmd.Item)`
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 0.5rem;
+  cursor: pointer;
+  border-radius: 0.375rem;
+  padding: 0.5rem;
+  text-align: left;
+  font-size: 0.875rem;
+  color: #333;
+
+  &:hover {
+    background-color: #f0f0f0;
+  }
+
+  &[aria-selected="true"] {
+    background-color: #e0e0e0;
+  }
+`;
 
 export const SlashCommandEditor = ({ editor }: { editor: Editor | null }) => {
 
@@ -29,22 +51,31 @@ export const SlashCommandEditor = ({ editor }: { editor: Editor | null }) => {
     <SlashCmdProvider>
       <EditorContent editor={editor} />
       <SlashCmd.Root editor={editor}>
-        <SlashCmd.Cmd className="z-50 h-auto max-h-[330px] overflow-y-auto rounded-md border border-muted bg-background p-4  shadow-[rgba(100,_100,_111,_0.2)_0px_7px_29px_0px] transition-all bg-white">
+        <SlashCmd.Cmd style={{
+          zIndex: 50,
+          maxHeight: '330px',
+          overflowY: 'auto',
+          borderRadius: '0.375rem',
+          border: '1px solid #e5e7eb',
+          backgroundColor: 'white',
+          padding: '1rem',
+          boxShadow: 'rgba(100, 100, 111, 0.2) 0px 7px 29px 0px',
+          transition: 'all',
+        }}>
           <SlashCmd.Empty>No commands available</SlashCmd.Empty>
           <SlashCmd.List>
             {commandList.map((item: any) => {
               return (
-                <SlashCmd.Item
+                <SlashCmdItem
                   value={item.title}
                   onCommand={(val) => {
                     item.command(val);
                   }}
                   onFocus={item.onFocus ? () => item.onFocus(editor) : undefined}
-                  className="flex w-full items-center space-x-2 cursor-pointer rounded-md p-2 text-left text-sm hover:bg-gray-200 aria-selected:bg-gray-200"
                   key={item.title}
                 >
                   <p className="font-medium text-sm">{item.title}</p>
-                </SlashCmd.Item>
+                </SlashCmdItem>
               )
             })}
           </SlashCmd.List>
