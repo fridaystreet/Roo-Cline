@@ -1,8 +1,14 @@
 import React, { useEffect, useCallback, useRef } from 'react'
-import styled from "styled-components"
+import HardBreak from '@tiptap/extension-hard-break'
 import Typography from '@tiptap/extension-typography'
+import { Color } from '@tiptap/extension-color'
+import ListItem from '@tiptap/extension-list-item'
+import TextStyle from '@tiptap/extension-text-style'
 import StarterKit from '@tiptap/starter-kit'
+import { Markdown } from 'tiptap-markdown';
 import Placeholder from '@tiptap/extension-placeholder'
+import CodeBlockLowlight from '@tiptap/extension-code-block-lowlight'
+import { all, createLowlight } from 'lowlight'
 import { isEqual } from 'lodash'
 import { useEditor, Editor } from '@tiptap/react'
 import {
@@ -11,171 +17,13 @@ import {
   SpellCheck,
   AIExtension,
   // useSlashCommands,
-  OnReturnHandler,
+  // OnReturnHandler,
   SlashCommandEditor
 } from './extensions'
-import  { CODE_BLOCK_BG_COLOR } from '../../common/CodeBlock'
+import './styles.css'
 
-const StyledEditor = styled.div`
-  /* Basic editor styles */
+const lowlight = createLowlight(all)
 
-  width: 100%;
-  box-sizing: border-box;
-  background-color: var(--vscode-input-background);
-  color: var(--vscode-input-foreground);
-  border-radius: 2px;
-  font-family: var(--vscode-font-family);
-  font-size: var(--vscode-editor-font-size);
-  line-height: var(--vscode-editor-line-height);
-  resize: none;
-  overflow: hidden scroll;
-  border-color: transparent;
-  z-index: 1;
-  min-height: 26px;
-  max-height: 260px;
-
-  .ProseMirror:focus {
-    outline: none;
-  }
-
-  .ProseMirror p.is-editor-empty:first-child::before {
-    content: attr(data-placeholder);
-    float: left;
-    pointer-events: none;
-    opacity: 0.5;
-    height: 0;
-  }
-
-  .tiptap {
-  
-    min-height: 26px;
-    max-height: 260px;
-  
-    padding-top: 10px;
-    padding-bottom: 12px;
-      
-    /* List styles */
-    ul, 
-    ol {
-      padding: 0 1rem;
-      margin: 1.25rem 1rem 1.25rem 0.4rem;
-      
-      li p {
-        margin-top: 0.25em;
-        margin-bottom: 0.25em;
-      }
-    }
-
-    /* Heading styles */
-    h1, 
-    h2, 
-    h3, 
-    h4, 
-    h5, 
-    h6 {
-      line-height: 1.1;
-      margin-top: 2.5rem;
-      text-wrap: pretty;
-    }
-
-    h1, 
-    h2 {
-      margin-top: 3.5rem;
-      margin-bottom: 1.5rem;
-    }
-
-    h1 { 
-      font-size: 1.4rem; 
-    }
-
-    h2 { 
-      font-size: 1.2rem; 
-    }
-
-    h3 { 
-      font-size: 1.1rem; 
-    }
-
-    h4, 
-    h5, 
-    h6 { 
-      font-size: 1rem; 
-    }
-
-    /* Code and preformatted text styles */
-    code {
-      span.line:empty {
-        display: none;
-      }
-      word-wrap: break-word;
-      border-radius: 5px;
-      background-color: ${CODE_BLOCK_BG_COLOR};
-      font-size: var(--vscode-editor-font-size, var(--vscode-font-size, 12px));
-      font-family: var(--vscode-editor-font-family);
-    }
-
-    code:not(pre > code) {
-      font-family: var(--vscode-editor-font-family);
-      color: #f78383;
-    }
-
-
-    pre {
-      background: ${CODE_BLOCK_BG_COLOR};
-      border-radius: 0.5rem;
-      color: var(--white);
-      font-family: 'JetBrainsMono', monospace;
-      margin: 1.5rem 0;
-      padding: 0.75rem 1rem;
-
-      code {
-        background: none;
-        color: inherit;
-        font-size: 0.8rem;
-        padding: 0;
-      }
-    }
-
-    mark {
-      background-color: color-mix(in srgb, var(--vscode-badge-foreground) 30%, #0000);
-      border-radius: 3px;
-      color: inherit;
-      box-decoration-break: clone;
-      padding: 0.1rem 0.3rem;
-    }
-
-    blockquote {
-      border-left: 3px solid var(--gray-3);
-      margin: 1.5rem 0;
-      padding-left: 1rem;
-    }
-
-    hr {
-      border: none;
-      border-top: 1px solid var(--gray-2);
-      margin: 2rem 0;
-    }
-    
-    > pre, blockquote, hr {
-      margin-left: 10px;
-      margin-right: 55px;
-    }
-
-    :first-child {
-      margin-top: 0;
-    }
-
-    :last-child {
-      margin-bottom: 0;
-    }
-
-    > * {
-      margin-left: 10px;
-      margin-right: 55px;
-    }
-
-  }
-`
 interface ChatTextAreaEditorProps {
   value: string;
   disabled?: boolean;
@@ -195,6 +43,7 @@ interface ChatTextAreaEditorProps {
   maxRows?: number;
   autofocus?: boolean;  
   styles?: any,
+  format?: string;
 }
 
 export interface TipTapHTMLTextAreaElement extends HTMLTextAreaElement {
@@ -216,6 +65,7 @@ export const ChatTextAreaEditor = React.forwardRef<TipTapHTMLTextAreaElement, Ch
   onScroll,
   placeholder,
   styles,
+  format,
   autofocus = true
 }, textAreaRef) => {
 
@@ -274,11 +124,32 @@ export const ChatTextAreaEditor = React.forwardRef<TipTapHTMLTextAreaElement, Ch
   
   const editor = useEditor({
     extensions: [
+      Color.configure({ types: [TextStyle.name, ListItem.name] }),
+      TextStyle,
       StarterKit.configure({
-        // codeBlock: false,
+        codeBlock: false,
+        hardBreak: false,
+        bulletList: {
+          keepMarks: true,
+          keepAttributes: false,
+        },
+        orderedList: {
+          keepMarks: true,
+          keepAttributes: false,
+        },
       }),
       Highlight,
       Typography,
+      Markdown.configure({
+        html: false,                  // Allow HTML input/output
+        tightLists: true,            // No <p> inside <li> in markdown output
+        tightListClass: 'tight',     // Add class to <ul> allowing you to remove <p> margins when tight
+        bulletListMarker: '-',       // <li> prefix in markdown output
+        linkify: true,              // Create links from "https://..." text
+        breaks: true,               // New lines (\n) in markdown input are converted to <br>
+        transformPastedText: true,  // Allow to paste markdown text in the editor
+        transformCopiedText: true,  // Copied text is transformed to markdown
+      }),
       Placeholder.configure({
         placeholder
       }),
@@ -286,22 +157,35 @@ export const ChatTextAreaEditor = React.forwardRef<TipTapHTMLTextAreaElement, Ch
       AIExtension.configure({
         enhancingMessage: 'Generating new content...',
       }),
+      CodeBlockLowlight.configure({
+        lowlight,
+      }),
       //SlashCommands
       GetOutput,
-      OnReturnHandler
+      HardBreak.extend({
+        addKeyboardShortcuts() {
+          return {
+            'Mod-Enter': () => this.editor.commands.insertContent({ type: 'paragraph' }),
+            'Shift-Enter': () => this.editor.commands.setHardBreak(),
+          }
+        }
+      }).configure({
+        keepMarks: false
+      })
+      // OnReturnHandler.configure({
+      //   // onReturn 
+      // })
     ],
     autofocus,
     editable: !disabled,
     content: value,
     editorProps: {
       handleDOMEvents: {
-        keyup: (view, event) => {
-          if (typeof onKeyUp === 'function') {
-            onKeyUp(event, view)
-          }
-        },
         keydown: (view, event: any) => {
-          if (event.key === "Enter" && !event.shiftKey) {
+          if (event.key === "Enter") {
+            if (!event.composed || event.shiftKey || event.metaKey || event.ctrlKey) {
+              return
+            }
             const { selection } = view.state;
             const { anchor } = selection;
             const nodes: any[] = []
@@ -312,6 +196,11 @@ export const ChatTextAreaEditor = React.forwardRef<TipTapHTMLTextAreaElement, Ch
           }
           if (typeof onKeyDown === 'function') {
             onKeyDown(event, view)
+          }
+        },
+        keyup: (view, event) => {
+          if (typeof onKeyUp === 'function') {
+            onKeyUp(event, view)
           }
         },
         mouseup: (view, event) => {
@@ -327,9 +216,9 @@ export const ChatTextAreaEditor = React.forwardRef<TipTapHTMLTextAreaElement, Ch
       }
     },
     onUpdate({ editor }) {
-      const value = editor.commands.getOutput().plainText
-      valueRef.current = value;
-      sendTextAreaEvent('change', { value })
+      const output = editor.commands.getOutput()
+      valueRef.current = format === 'markdown' ? output.markdown : output.plaintext
+      sendTextAreaEvent('change', { value: valueRef.current })
     },
     onSelectionUpdate({ editor }) {
       const { view } = editor
@@ -371,9 +260,9 @@ export const ChatTextAreaEditor = React.forwardRef<TipTapHTMLTextAreaElement, Ch
 
   return (
     <>
-      <StyledEditor ref={containerRef} style={styles} onScroll={handleOnScroll}>
+      <div className="ChatTextAreaEditor" ref={containerRef} style={styles} onScroll={handleOnScroll}>
         <SlashCommandEditor editor={editor} />
-      </StyledEditor>
+      </div>
       <textarea 
         ref={textAreaRef} 
         style={{

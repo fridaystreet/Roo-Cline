@@ -1,14 +1,16 @@
 import { Extension, Editor, JSONContent } from '@tiptap/core'
 
 export const getOutput = (editor: Editor) => {
-  const json: JSONContent = editor.getJSON();
-  const html: string = editor.getHTML();
-  const plainText: string = editor.getText({ blockSeparator: "\n\n" }).trim();
+  const json: JSONContent = editor.getJSON()
+  const html: string = editor.getHTML()
+  const plainText: string = editor.getText({ blockSeparator: "\n\n" }).trim()
+  const markdown: string = editor.storage.markdown?.getMarkdown()
 
   return {
     json,
     html,
-    plainText
+    plainText,
+    markdown
   }
 }
 

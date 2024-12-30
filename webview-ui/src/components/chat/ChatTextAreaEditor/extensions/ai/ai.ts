@@ -1,5 +1,4 @@
 import { Extension, Editor } from '@tiptap/core'
-import { selectAll } from 'prosemirror-commands';
 import { vscode } from "../../../../../utils/vscode"
 
 

@@ -7,7 +7,7 @@ interface OnReturnHandlerOptions {
 
 const onReturn = (event: KeyboardEvent, editor: Editor, { onReturn }: OnReturnHandlerOptions) => {
 
-  if (event.key !== "Enter" || event.shiftKey) return;
+  if (event.key !== "Enter" || event.shiftKey || event.metaKey) return;
 
   if (editor.isEmpty) return true;
 

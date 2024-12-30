@@ -502,7 +502,8 @@ const ChatTextArea = forwardRef<TipTapHTMLTextAreaElement, ChatTextAreaProps>(
             onHeightChange?.(height)
           }}
           placeholder={placeholderText}
-          autofocus={true}    
+          autofocus={true}   
+          format="markdown" 
           styles={{
             boxShadow: isTextAreaFocused ? "inset 0 0 0 1px var(--vscode-focusBorder)" : undefined,
 						// Since we have maxRows, when text is long enough it starts to overflow the bottom padding, appearing behind the thumbnails. To fix this, we use a transparent border to push the text up instead. (https://stackoverflow.com/questions/42631947/maintaining-a-padding-inside-of-text-area/52538410#52538410)
