@@ -39,6 +39,7 @@ export const SlashCommandEditor = ({ editor }: { editor: Editor | null }) => {
                   onCommand={(val) => {
                     item.command(val);
                   }}
+                  onFocus={item.onFocus ? () => item.onFocus(editor) : undefined}
                   className="flex w-full items-center space-x-2 cursor-pointer rounded-md p-2 text-left text-sm hover:bg-gray-200 aria-selected:bg-gray-200"
                   key={item.title}
                 >

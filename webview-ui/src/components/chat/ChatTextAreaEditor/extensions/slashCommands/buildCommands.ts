@@ -18,12 +18,12 @@ export const buildCommands: any = (apiConfiguration: ApiConfiguration, setApiCon
     }),
     title: "Spellcheck",
     command: ({ editor }: any) => {
-      let { from, to }: any = editor.commands.getSelectedText()
+      let { from, to }: any = editor?.commands.getSelectedText()
       editor
         .chain()
         .focus()
-        .toggleSpellcheck()
         .deleteRange({ from: from-1, to })
+        .toggleSpellcheck()
         .run()
     }
   },
@@ -32,9 +32,8 @@ export const buildCommands: any = (apiConfiguration: ApiConfiguration, setApiCon
     title: `Set provider - ${apiProvider}`,
     command: ({ editor }: any) => {
       setApiConfiguration({ ...apiConfiguration, apiProvider })
-      let { from, to }: any = editor.commands.getSelectedText()
-      editor
-        .chain()
+      let { from, to }: any = editor?.commands.getSelectedText()
+        editor?.chain()
         .focus()
         .deleteRange({ from: from-1, to })
         .run()
