@@ -25,17 +25,24 @@ declare module '@tiptap/core' {
   // tslint:disable-next-line:interface-name
   interface Commands<ReturnType> {
     spellcheck: {
-      toggleSpellcheck: () => ReturnType
+      toggleSpellcheck: () => ReturnType,
+      spellcheckIsActive: () => ReturnType
     }
   }
 }
 
 export const SpellCheck = Extension.create({
   name: 'spellcheck',
+  addStorage() {
+    return {
+      spellcheckEnabled: false
+    }
+  },
   addCommands() {
     return {
       toggleSpellcheck: () => () => {
         spellCheckEnabledStore.set(!spellCheckEnabledStore.get())
+        this.storage.spellcheckEnabled = spellCheckEnabledStore.get()
         return true;
       }
     }

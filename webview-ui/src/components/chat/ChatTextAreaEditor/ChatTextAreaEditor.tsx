@@ -7,16 +7,21 @@ import StarterKit from '@tiptap/starter-kit'
 import { Markdown } from 'tiptap-markdown';
 import Placeholder from '@tiptap/extension-placeholder'
 import CodeBlockLowlight from '@tiptap/extension-code-block-lowlight'
+import {
+  Slash,
+  enableKeyboardNavigation,
+} from "@harshtalks/slash-tiptap";
 import { all, createLowlight } from 'lowlight'
 import { isEqual } from 'lodash'
 import { useEditor, Editor } from '@tiptap/react'
 import {
   GetOutput,
+  GetSelectedText,
+  OnReturnHandler,
   Highlight,
   SpellCheck,
   AIExtension,
   useSlashCommands,
-  OnReturnHandler,
   SlashCommandEditor
 } from './extensions'
 import './styles.css'
@@ -71,7 +76,7 @@ export const ChatTextAreaEditor = React.forwardRef<TipTapHTMLTextAreaElement, Ch
   const valueRef = useRef<string>(value)
   const containerRef = useRef<HTMLDivElement>(null)
   
-  const SlashCommands = useSlashCommands()
+  const slashCommands = useSlashCommands()
 
   useEffect(() => {
     if (!containerRef.current || typeof onHeightChange !== 'function') return
@@ -123,6 +128,8 @@ export const ChatTextAreaEditor = React.forwardRef<TipTapHTMLTextAreaElement, Ch
   
   const editor = useEditor({
     extensions: [
+      GetOutput,
+      GetSelectedText,
       OnReturnHandler,
       Color.configure({ types: [TextStyle.name, ListItem.name] }),
       TextStyle,
@@ -168,15 +175,26 @@ export const ChatTextAreaEditor = React.forwardRef<TipTapHTMLTextAreaElement, Ch
       CodeBlockLowlight.configure({
         lowlight,
       }),
-      SlashCommands,
-      GetOutput
+      Slash.configure({
+        suggestion: {
+          items: () => slashCommands
+        },
+      })
     ],
     autofocus,
     editable: !disabled,
     content: value,
     editorProps: {
+      attributes: {
+        class:
+          "prose prose-sm sm:prose lg:prose-lg xl:prose-2xl mx-auto focus:outline-none",
+      },
       handleDOMEvents: {
         keydown: (view, event: any) => {
+          const slash = enableKeyboardNavigation(event)
+          if (slash) {
+            return true
+          }
           if (typeof onKeyDown !== 'function') return
           if (event.key !== "Enter") {
             onKeyDown(event, view)

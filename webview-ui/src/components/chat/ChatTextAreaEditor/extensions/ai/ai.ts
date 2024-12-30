@@ -21,25 +21,6 @@ declare module '@tiptap/core' {
   }
 }
 
-const getSelectedText = (editor: Editor) => {
-
-  const { selection, doc } = editor.view.state
-  const { from, to } = selection
-  let text: any = doc.textBetween(from, to, ' ')
-
-  if (text.match(/<(.*)>.?|<(.*) \/>/)) {
-    return
-  }
-  if ((text.split(' ').length < 2 || text.length < 4)) {
-    text = undefined
-  }
-
-  return {
-    from,
-    to,
-    text
-  }
-}
 
 const getMessageHandler = (editor: Editor, storage: any) => (event: MessageEvent) => {
   const message = event.data
@@ -126,7 +107,7 @@ export const AIExtension = Extension.create({
 
           let editable = _this.editor.isEditable
           try {
-            let { text, from, to }: any = getSelectedText(_this.editor)
+            let { text, from, to }: any = commands.getSelectedText()
             if (!text) {
               if (params?.onlySelected) {
                 throw new Error('no text selected')

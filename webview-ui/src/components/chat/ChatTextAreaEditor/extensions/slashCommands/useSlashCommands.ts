@@ -1,21 +1,13 @@
 import { useMemo } from 'react'
-import {
-  Slash,
-  enableKeyboardNavigation,
-} from "@harshtalks/slash-tiptap";
-import { commands } from './commands'
-
-export const slashKeyboardNav = {
-  keydown: (_: any, v: any) => enableKeyboardNavigation(v)
-}
+import { useExtensionState } from "../../../../../context/ExtensionStateContext"
+import { buildCommands } from './buildCommands'
 
 export const useSlashCommands = () => {
 
-  const SlashCommands = useMemo(() => Slash.configure({
-    suggestion: {
-      items: () => commands,
-    },
-  }), [])
+  const { apiConfiguration, setApiConfiguration, uriScheme } = useExtensionState()
+  const slashCommands = useMemo(() => {
+    return buildCommands(apiConfiguration, setApiConfiguration, uriScheme)
+  }, [apiConfiguration, setApiConfiguration, uriScheme])
 
-  return SlashCommands
+  return slashCommands 
 }
