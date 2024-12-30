@@ -58,7 +58,8 @@ export interface ExtensionState {
 	soundEnabled?: boolean
 	soundVolume?: number
 	diffEnabled?: boolean
-	browserLargeViewport?: boolean
+	browserViewportSize?: string
+	screenshotQuality?: number
 	fuzzyMatchThreshold?: number
 	preferredLanguage: string
 	writeDelayMs: number
