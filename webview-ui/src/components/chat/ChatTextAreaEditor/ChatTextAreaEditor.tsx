@@ -1,5 +1,4 @@
 import React, { useEffect, useCallback, useRef } from 'react'
-import HardBreak from '@tiptap/extension-hard-break'
 import Typography from '@tiptap/extension-typography'
 import { Color } from '@tiptap/extension-color'
 import ListItem from '@tiptap/extension-list-item'
@@ -16,8 +15,8 @@ import {
   Highlight,
   SpellCheck,
   AIExtension,
-  // useSlashCommands,
-  // OnReturnHandler,
+  useSlashCommands,
+  OnReturnHandler,
   SlashCommandEditor
 } from './extensions'
 import './styles.css'
@@ -72,7 +71,7 @@ export const ChatTextAreaEditor = React.forwardRef<TipTapHTMLTextAreaElement, Ch
   const valueRef = useRef<string>(value)
   const containerRef = useRef<HTMLDivElement>(null)
   
-  // const SlashCommands = useSlashCommands()
+  const SlashCommands = useSlashCommands()
 
   useEffect(() => {
     if (!containerRef.current || typeof onHeightChange !== 'function') return
@@ -124,11 +123,14 @@ export const ChatTextAreaEditor = React.forwardRef<TipTapHTMLTextAreaElement, Ch
   
   const editor = useEditor({
     extensions: [
+      OnReturnHandler,
       Color.configure({ types: [TextStyle.name, ListItem.name] }),
       TextStyle,
       StarterKit.configure({
         codeBlock: false,
-        hardBreak: false,
+        hardBreak: {
+          keepMarks: false
+        },
         bulletList: {
           keepMarks: true,
           keepAttributes: false,
@@ -140,15 +142,21 @@ export const ChatTextAreaEditor = React.forwardRef<TipTapHTMLTextAreaElement, Ch
       }),
       Highlight,
       Typography,
-      Markdown.configure({
-        html: false,                  // Allow HTML input/output
+      Markdown.extend({
+        //we need to overrid ethe addCommands as we don't want the markdown plugin 
+        //running for converting markdown input, we just need it for the markdown serialer output
+        addCommands() {
+          return {}
+        }
+      }).configure({
+        html: false,                 // Allow HTML input/output
         tightLists: true,            // No <p> inside <li> in markdown output
         tightListClass: 'tight',     // Add class to <ul> allowing you to remove <p> margins when tight
         bulletListMarker: '-',       // <li> prefix in markdown output
         linkify: true,              // Create links from "https://..." text
         breaks: true,               // New lines (\n) in markdown input are converted to <br>
-        transformPastedText: true,  // Allow to paste markdown text in the editor
-        transformCopiedText: true,  // Copied text is transformed to markdown
+        transformPastedText: false,  // Allow to paste markdown text in the editor
+        transformCopiedText: false,  // Copied text is transformed to markdown
       }),
       Placeholder.configure({
         placeholder
@@ -160,21 +168,8 @@ export const ChatTextAreaEditor = React.forwardRef<TipTapHTMLTextAreaElement, Ch
       CodeBlockLowlight.configure({
         lowlight,
       }),
-      //SlashCommands
-      GetOutput,
-      HardBreak.extend({
-        addKeyboardShortcuts() {
-          return {
-            'Mod-Enter': () => this.editor.commands.insertContent({ type: 'paragraph' }),
-            'Shift-Enter': () => this.editor.commands.setHardBreak(),
-          }
-        }
-      }).configure({
-        keepMarks: false
-      })
-      // OnReturnHandler.configure({
-      //   // onReturn 
-      // })
+      SlashCommands,
+      GetOutput
     ],
     autofocus,
     editable: !disabled,
@@ -182,21 +177,11 @@ export const ChatTextAreaEditor = React.forwardRef<TipTapHTMLTextAreaElement, Ch
     editorProps: {
       handleDOMEvents: {
         keydown: (view, event: any) => {
-          if (event.key === "Enter") {
-            if (!event.composed || event.shiftKey || event.metaKey || event.ctrlKey) {
-              return
-            }
-            const { selection } = view.state;
-            const { anchor } = selection;
-            const nodes: any[] = []
-            view.state.doc.nodesBetween(anchor - 1, anchor, (node, pos) => {
-              nodes.push(node.type.name);
-            })
-            if (nodes[0] !== 'paragraph') return
-          }
-          if (typeof onKeyDown === 'function') {
+          if (typeof onKeyDown !== 'function') return
+          if (event.key !== "Enter") {
             onKeyDown(event, view)
           }
+          editor?.commands.onReturn(event, view, onKeyDown)
         },
         keyup: (view, event) => {
           if (typeof onKeyUp === 'function') {
@@ -217,7 +202,7 @@ export const ChatTextAreaEditor = React.forwardRef<TipTapHTMLTextAreaElement, Ch
     },
     onUpdate({ editor }) {
       const output = editor.commands.getOutput()
-      valueRef.current = format === 'markdown' ? output.markdown : output.plaintext
+      valueRef.current = format === 'markdown' && output.markdown ? output.markdown : output.plainText
       sendTextAreaEvent('change', { value: valueRef.current })
     },
     onSelectionUpdate({ editor }) {
