@@ -15,6 +15,7 @@ import {
 	OllamaHandler,
 	LmStudioHandler,
 	GeminiHandler,
+	GeminiCliHandler,
 	OpenAiNativeHandler,
 	DeepSeekHandler,
 	MistralHandler,
@@ -59,57 +60,47 @@ export interface ApiHandler {
 	countTokens(content: Array<Anthropic.Messages.ContentBlockParam>): Promise<number>
 }
 
+const providerMap: Record<string, new (options: any) => ApiHandler> = {
+	anthropic: AnthropicHandler,
+	"claude-code": ClaudeCodeHandler,
+	glama: GlamaHandler,
+	openrouter: OpenRouterHandler,
+	bedrock: AwsBedrockHandler,
+	openai: OpenAiHandler,
+	ollama: OllamaHandler,
+	lmstudio: LmStudioHandler,
+	gemini: GeminiHandler,
+	"gemini-cli": GeminiCliHandler,
+	"openai-native": OpenAiNativeHandler,
+	deepseek: DeepSeekHandler,
+	"vscode-lm": VsCodeLmHandler,
+	mistral: MistralHandler,
+	unbound: UnboundHandler,
+	requesty: RequestyHandler,
+	"fake-ai": FakeAIHandler,
+	xai: XAIHandler,
+	groq: GroqHandler,
+	chutes: ChutesHandler,
+	litellm: LiteLLMHandler,
+}
+
 export function buildApiHandler(configuration: ProviderSettings): ApiHandler {
 	const { apiProvider, ...options } = configuration
 
 	switch (apiProvider) {
-		case "anthropic":
-			return new AnthropicHandler(options)
-		case "claude-code":
-			return new ClaudeCodeHandler(options)
-		case "glama":
-			return new GlamaHandler(options)
-		case "openrouter":
-			return new OpenRouterHandler(options)
-		case "bedrock":
-			return new AwsBedrockHandler(options)
 		case "vertex":
 			return options.apiModelId?.startsWith("claude")
 				? new AnthropicVertexHandler(options)
 				: new VertexHandler(options)
-		case "openai":
-			return new OpenAiHandler(options)
-		case "ollama":
-			return new OllamaHandler(options)
-		case "lmstudio":
-			return new LmStudioHandler(options)
-		case "gemini":
-			return new GeminiHandler(options)
-		case "openai-native":
-			return new OpenAiNativeHandler(options)
-		case "deepseek":
-			return new DeepSeekHandler(options)
-		case "vscode-lm":
-			return new VsCodeLmHandler(options)
-		case "mistral":
-			return new MistralHandler(options)
-		case "unbound":
-			return new UnboundHandler(options)
-		case "requesty":
-			return new RequestyHandler(options)
 		case "human-relay":
 			return new HumanRelayHandler()
-		case "fake-ai":
-			return new FakeAIHandler(options)
-		case "xai":
-			return new XAIHandler(options)
-		case "groq":
-			return new GroqHandler(options)
-		case "chutes":
-			return new ChutesHandler(options)
-		case "litellm":
-			return new LiteLLMHandler(options)
 		default:
+			if (apiProvider) {
+				const Handler = providerMap[apiProvider]
+				if (Handler) {
+					return new Handler(options)
+				}
+			}
 			return new AnthropicHandler(options)
 	}
 }

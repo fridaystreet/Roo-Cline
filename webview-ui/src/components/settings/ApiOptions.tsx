@@ -56,6 +56,7 @@ import {
 	ClaudeCode,
 	DeepSeek,
 	Gemini,
+	GeminiCli,
 	Glama,
 	Groq,
 	LMStudio,
@@ -446,6 +447,10 @@ const ApiOptions = ({
 				<Gemini apiConfiguration={apiConfiguration} setApiConfigurationField={setApiConfigurationField} />
 			)}
 
+			{selectedProvider === "gemini-cli" && (
+				<GeminiCli apiConfiguration={apiConfiguration} setApiConfigurationField={setApiConfigurationField} />
+			)}
+
 			{selectedProvider === "openai" && (
 				<OpenAICompatible
 					apiConfiguration={apiConfiguration}
@@ -550,12 +555,14 @@ const ApiOptions = ({
 				</>
 			)}
 
-			<ThinkingBudget
-				key={`${selectedProvider}-${selectedModelId}`}
-				apiConfiguration={apiConfiguration}
-				setApiConfigurationField={setApiConfigurationField}
-				modelInfo={selectedModelInfo}
-			/>
+			{selectedProvider !== "gemini-cli" && (
+				<ThinkingBudget
+					key={`${selectedProvider}-${selectedModelId}`}
+					apiConfiguration={apiConfiguration}
+					setApiConfigurationField={setApiConfigurationField}
+					modelInfo={selectedModelInfo}
+				/>
+			)}
 
 			{!fromWelcomeView && (
 				<Collapsible open={isAdvancedSettingsOpen} onOpenChange={setIsAdvancedSettingsOpen}>
@@ -569,15 +576,19 @@ const ApiOptions = ({
 							fuzzyMatchThreshold={apiConfiguration.fuzzyMatchThreshold}
 							onChange={(field, value) => setApiConfigurationField(field, value)}
 						/>
-						<TemperatureControl
-							value={apiConfiguration.modelTemperature}
-							onChange={handleInputChange("modelTemperature", noTransform)}
-							maxValue={2}
-						/>
-						<RateLimitSecondsControl
-							value={apiConfiguration.rateLimitSeconds || 0}
-							onChange={(value) => setApiConfigurationField("rateLimitSeconds", value)}
-						/>
+						{selectedProvider !== "gemini-cli" && (
+							<TemperatureControl
+								value={apiConfiguration.modelTemperature}
+								onChange={handleInputChange("modelTemperature", noTransform)}
+								maxValue={2}
+							/>
+						)}
+						{selectedProvider !== "gemini-cli" && (
+							<RateLimitSecondsControl
+								value={apiConfiguration.rateLimitSeconds || 0}
+								onChange={(value) => setApiConfigurationField("rateLimitSeconds", value)}
+							/>
+						)}
 						<ConsecutiveMistakeLimitControl
 							value={
 								apiConfiguration.consecutiveMistakeLimit !== undefined

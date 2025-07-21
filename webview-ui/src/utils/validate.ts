@@ -72,6 +72,11 @@ function validateModelsAndKeysProvided(apiConfiguration: ProviderSettings): stri
 				return i18next.t("settings:validation.apiKey")
 			}
 			break
+		case "gemini-cli":
+			if (!apiConfiguration.geminiCliProjectId) {
+				return "Google Cloud Project ID is required for Gemini CLI"
+			}
+			break
 		case "openai-native":
 			if (!apiConfiguration.openAiNativeApiKey) {
 				return i18next.t("settings:validation.apiKey")

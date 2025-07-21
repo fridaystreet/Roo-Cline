@@ -157,6 +157,11 @@ function getSelectedModel({
 			const info = geminiModels[id as keyof typeof geminiModels]
 			return { id, info }
 		}
+		case "gemini-cli": {
+			const id = apiConfiguration.apiModelId ?? geminiDefaultModelId
+			const info = geminiModels[id as keyof typeof geminiModels]
+			return { id, info }
+		}
 		case "deepseek": {
 			const id = apiConfiguration.apiModelId ?? deepSeekDefaultModelId
 			const info = deepSeekModels[id as keyof typeof deepSeekModels]
