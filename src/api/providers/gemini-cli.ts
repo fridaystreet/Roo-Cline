@@ -2,21 +2,51 @@ import { spawn } from "child_process"
 import { promises as fs } from "fs"
 import { join } from "path"
 import { homedir } from "os"
+import * as vscode from "vscode"
 import type { Anthropic } from "@anthropic-ai/sdk"
 import type { ApiHandlerOptions } from "../../shared/api"
 import { getModelParams } from "../transform/model-params"
-import { convertToSimplePrompt } from "../transform/gemini-cli-format"
+import { convertAnthropicMessagesToPrompt } from "../transform/gemini-cli-format"
 import type { ApiStream } from "../transform/stream"
 import type { SingleCompletionHandler, ApiHandlerCreateMessageMetadata } from "../index"
 import { BaseProvider } from "./base-provider"
 import { geminiDefaultModelId, geminiModels, type GeminiModelId, type ModelInfo } from "@roo-code/types"
+import { GeminiCliTelemetryReceiver, type TokenUsage } from "./gemini-cli-telemetry"
 
 export class GeminiCliHandler extends BaseProvider implements SingleCompletionHandler {
 	protected options: ApiHandlerOptions
+	private telemetryReceiver: GeminiCliTelemetryReceiver | null = null
+	private lastTokenUsage: TokenUsage | null = null
 
 	constructor(options: ApiHandlerOptions) {
 		super()
 		this.options = options
+	}
+
+	/**
+	 * Automatically detects enabled MCP servers from VS Code extension context
+	 * @returns Array of enabled MCP server names
+	 */
+	private getEnabledMcpServers(): string[] {
+		try {
+			// Try to get the ClineProvider instance from the global context
+			// This is a simplified approach - in a real implementation, we'd need
+			// to access the actual McpHub instance through the extension context
+			const extension = vscode.extensions.getExtension("roo-code.roo-code")
+			if (!extension?.isActive) {
+				console.log("🔗 Gemini CLI: Roo-Code extension not active, no MCP servers available")
+				return []
+			}
+
+			// For now, return an empty array as a placeholder
+			// In a full implementation, this would access the McpHub through the extension's exports
+			// and call mcpHub.getServers().filter(s => s.status === 'connected').map(s => s.name)
+			console.log("🔗 Gemini CLI: MCP server auto-detection not yet fully implemented")
+			return []
+		} catch (error) {
+			console.warn("🔗 Gemini CLI: Failed to auto-detect MCP servers:", error)
+			return []
+		}
 	}
 
 	async *createMessage(
@@ -24,8 +54,8 @@ export class GeminiCliHandler extends BaseProvider implements SingleCompletionHa
 		messages: Anthropic.Messages.MessageParam[],
 		metadata?: ApiHandlerCreateMessageMetadata,
 	): ApiStream {
-		// Use the CLI format transformer to convert messages to text
-		const prompt = convertToSimplePrompt(messages, systemInstruction)
+		// Use the CLI format transformer to convert messages to text with full conversation history
+		const prompt = convertAnthropicMessagesToPrompt(messages, systemInstruction)
 
 		try {
 			const output = await this.completePrompt(prompt)
@@ -44,14 +74,8 @@ export class GeminiCliHandler extends BaseProvider implements SingleCompletionHa
 		const info: ModelInfo = geminiModels[id]
 		const params = getModelParams({ format: "gemini", modelId: id, model: info, settings: this.options })
 
-		// Map internal model IDs to CLI model names
-		let cliModelId = id
-		if (id === "gemini-2.5-pro") {
-			cliModelId = "gemini-2.0-flash-001" // Use the actual CLI model name
-		}
-
 		return {
-			id: cliModelId.endsWith(":thinking") ? cliModelId.replace(":thinking", "") : cliModelId,
+			id: id.endsWith(":thinking") ? id.replace(":thinking", "") : id,
 			info,
 			...params,
 		}
@@ -89,12 +113,19 @@ export class GeminiCliHandler extends BaseProvider implements SingleCompletionHa
 	}
 
 	async completePrompt(prompt: string): Promise<string> {
-		const { id: model } = this.getModel()
-
-		// Ensure settings.json exists with correct auth method
 		await this.ensureSettingsFile()
 
-		// Set up environment for Google OAuth (code assist) authentication
+		// Start telemetry receiver if telemetry is enabled
+		let telemetryPort: number | null = null
+		if (this.options.geminiCliTelemetry) {
+			telemetryPort = await this.startTelemetryReceiver()
+		}
+
+		const { id: model } = this.getModel()
+
+		// No truncation needed - we'll use stdin to pass the full prompt
+
+		// Set up environment variables
 		const env = { ...process.env }
 
 		// Use the provided project ID if available
@@ -102,20 +133,55 @@ export class GeminiCliHandler extends BaseProvider implements SingleCompletionHa
 			env.GOOGLE_CLOUD_PROJECT = this.options.geminiCliProjectId
 		}
 
-		// Use OAuth authentication (default when no API key is provided)
-		const args = [
-			"--prompt",
-			prompt,
-			"--model",
-			model,
-			// No API key provided, so CLI will use OAuth by default
-		]
+		// Build CLI arguments based on configuration
+		const args = ["--model", this.options.geminiCliModelId || "gemini-2.5-pro"]
+
+		// Add advanced CLI flags based on configuration
+		// Note: Some flags have sensible defaults for better Roo-Code integration
+
+		if (this.options.geminiCliAllFiles) {
+			args.push("--all-files")
+		}
+
+		// Enable checkpointing by default (can be disabled in UI)
+		if (this.options.geminiCliCheckpointing !== false) {
+			args.push("--checkpointing")
+		}
+
+		// Always enable telemetry for token usage tracking (essential for provider operation)
+		if (telemetryPort) {
+			args.push("--telemetry")
+			args.push("--telemetry-otlp-endpoint", `http://localhost:${telemetryPort}`)
+		}
+
+		// Add MCP servers if any are enabled (automatically detected)
+		const enabledMcpServers = this.getEnabledMcpServers()
+		if (enabledMcpServers.length > 0) {
+			args.push("--allowed-mcp-server-names", enabledMcpServers.join(","))
+			console.log(`🔗 Gemini CLI: Auto-detected MCP servers: ${enabledMcpServers.join(", ")}`)
+		}
+
+		// ACP mode off by default (may conflict with Roo-Code session management)
+		if (this.options.geminiCliExperimentalAcp) {
+			args.push("--experimental-acp")
+		}
+
+		// Enable IDE mode by default for better VS Code integration
+		if (this.options.geminiCliIdeMode !== false) {
+			args.push("--ide-mode")
+		}
 
 		return new Promise((resolve, reject) => {
 			const child = spawn("npx", ["https://github.com/google-gemini/gemini-cli", ...args], {
 				env,
 				stdio: ["pipe", "pipe", "pipe"],
 			})
+
+			// Send the full prompt via stdin to avoid OS argument length limits
+			if (child.stdin) {
+				child.stdin.write(prompt)
+				child.stdin.end()
+			}
 
 			let output = ""
 			let errorOutput = ""
@@ -128,7 +194,7 @@ export class GeminiCliHandler extends BaseProvider implements SingleCompletionHa
 				errorOutput += chunk.toString()
 			})
 
-			child.on("close", (exitCode) => {
+			child.on("close", async (exitCode) => {
 				if (exitCode !== 0) {
 					const errorMessage = errorOutput.trim()
 
@@ -136,23 +202,19 @@ export class GeminiCliHandler extends BaseProvider implements SingleCompletionHa
 					if (
 						errorMessage.includes("Auth method") ||
 						errorMessage.includes("settings.json") ||
-						errorMessage.includes("GEMINI_API_KEY")
+						errorMessage.includes("authentication") ||
+						errorMessage.includes("login")
 					) {
 						reject(
 							new Error(
-								"🔐 Gemini CLI Authentication Required\n\n" +
-									"The Gemini CLI needs to be set up with Google OAuth authentication.\n\n" +
-									"Setup Steps:\n" +
-									"1. Run: npx https://github.com/google-gemini/gemini-cli\n" +
-									"2. Select 'Login with Google'\n" +
-									"3. Complete the browser OAuth flow\n" +
-									"4. Try your request again",
+								"🔐 Authentication Required\n\n" +
+									"The Gemini CLI requires Google OAuth authentication.\n\n" +
+									"When you send your first message, Roo Code will automatically open your browser to complete the Google login process.",
 							),
 						)
 						return
 					}
-
-					if (errorMessage.includes("GOOGLE_CLOUD_PROJECT") || errorMessage.includes("workspace")) {
+					if (errorMessage.includes("GOOGLE_CLOUD_PROJECT") || errorMessage.includes("project")) {
 						reject(
 							new Error(
 								"🏢 Google Cloud Project ID Required\n\n" +
@@ -174,6 +236,29 @@ export class GeminiCliHandler extends BaseProvider implements SingleCompletionHa
 					return
 				}
 
+				// Wait for token usage from telemetry receiver if enabled
+				if (this.options.geminiCliTelemetry && this.telemetryReceiver) {
+					const usage = await this.telemetryReceiver.waitForTokenUsage()
+					if (usage) {
+						console.log(
+							`🔗 Gemini CLI Token Usage: Input: ${usage.inputTokens.toLocaleString()}, ` +
+								`Output: ${usage.outputTokens.toLocaleString()}` +
+								(usage.cacheReadTokens ? `, Cache: ${usage.cacheReadTokens.toLocaleString()}` : "") +
+								(usage.reasoningTokens
+									? `, Reasoning: ${usage.reasoningTokens.toLocaleString()}`
+									: "") +
+								` | Total: ${usage.totalTokens.toLocaleString()}`,
+						)
+						// Store usage data for later retrieval by the task system
+						this.lastTokenUsage = usage
+					} else {
+						console.log("🔗 Gemini CLI: No token usage information captured from telemetry receiver")
+					}
+
+					// Stop telemetry receiver
+					await this.stopTelemetryReceiver()
+				}
+
 				resolve(output.trim())
 			})
 
@@ -181,5 +266,115 @@ export class GeminiCliHandler extends BaseProvider implements SingleCompletionHa
 				reject(new Error(`Failed to spawn Gemini CLI: ${error.message}`))
 			})
 		})
+	}
+
+	/**
+	 * Start the telemetry receiver to capture token usage from Gemini CLI
+	 */
+	private async startTelemetryReceiver(): Promise<number> {
+		if (this.telemetryReceiver) {
+			return this.telemetryReceiver.getPort()
+		}
+
+		this.telemetryReceiver = new GeminiCliTelemetryReceiver()
+		return await this.telemetryReceiver.start()
+	}
+
+	/**
+	 * Stop the telemetry receiver
+	 */
+	private async stopTelemetryReceiver(): Promise<void> {
+		if (!this.telemetryReceiver) {
+			return
+		}
+
+		await this.telemetryReceiver.stop()
+		this.telemetryReceiver = null
+	}
+
+	/**
+	 * Parse token usage information from Gemini CLI telemetry collector log
+	 * The telemetry system outputs API response events with detailed token usage data
+	 * to ~/.gemini/tmp/<projectHash>/otel/collector.log when --telemetry --telemetry-target local is used
+	 */
+	private async parseTokenUsageFromTelemetry(): Promise<{
+		inputTokens: number
+		outputTokens: number
+		cacheReadTokens?: number
+	} | null> {
+		try {
+			const fs = await import("fs")
+			const path = await import("path")
+			const os = await import("os")
+
+			// Find the telemetry collector log file
+			// Path pattern: ~/.gemini/tmp/<projectHash>/otel/collector.log
+			const geminiDir = path.join(os.homedir(), ".gemini")
+			const tmpDir = path.join(geminiDir, "tmp")
+
+			if (!fs.existsSync(tmpDir)) {
+				return null
+			}
+
+			// Find the most recent project directory (there should only be one active)
+			const projectDirs = fs.readdirSync(tmpDir)
+			if (projectDirs.length === 0) {
+				return null
+			}
+
+			// Use the first (and likely only) project directory
+			const projectDir = projectDirs[0]
+			const collectorLogPath = path.join(tmpDir, projectDir, "otel", "collector.log")
+
+			if (!fs.existsSync(collectorLogPath)) {
+				return null
+			}
+
+			// Read the collector log file
+			const logContent = fs.readFileSync(collectorLogPath, "utf8")
+			const lines = logContent.split("\n")
+
+			// Look for the most recent api_response event with token usage data
+			// The log contains structured JSON-like entries with token counts
+			for (let i = lines.length - 1; i >= 0; i--) {
+				const line = lines[i]
+				if (line.includes("api_response") && line.includes("input_token_count")) {
+					try {
+						// Extract token usage from the telemetry log entry
+						const inputMatch = line.match(/"input_token_count":(\d+)/)
+						const outputMatch = line.match(/"output_token_count":(\d+)/)
+						const cacheMatch = line.match(/"cached_content_token_count":(\d+)/)
+
+						if (inputMatch && outputMatch) {
+							const inputTokens = parseInt(inputMatch[1], 10)
+							const outputTokens = parseInt(outputMatch[1], 10)
+							const cacheReadTokens = cacheMatch ? parseInt(cacheMatch[1], 10) : undefined
+
+							return {
+								inputTokens,
+								outputTokens,
+								cacheReadTokens: cacheReadTokens && cacheReadTokens > 0 ? cacheReadTokens : undefined,
+							}
+						}
+					} catch (parseError) {
+						// Continue searching if this line couldn't be parsed
+						continue
+					}
+				}
+			}
+
+			return null
+		} catch (error) {
+			console.warn("🔗 Gemini CLI: Failed to parse token usage from telemetry:", error)
+			return null
+		}
+	}
+
+	/**
+	 * Calculate cost for Gemini CLI provider
+	 * Always returns $0 since OAuth/code assist authentication is free
+	 */
+	public calculateCost(): number {
+		return 0 // OAuth authentication = free usage
 	}
 }

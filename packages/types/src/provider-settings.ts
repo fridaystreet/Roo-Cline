@@ -169,6 +169,13 @@ const geminiSchema = apiModelIdProviderModelSchema.extend({
 const geminiCliSchema = apiModelIdProviderModelSchema.extend({
 	geminiCliOAuthPath: z.string().optional(),
 	geminiCliProjectId: z.string().optional(),
+	geminiCliModelId: z.string().optional(),
+	// Advanced CLI options
+	geminiCliCheckpointing: z.boolean().optional(),
+	geminiCliTelemetry: z.boolean().optional(),
+	geminiCliExperimentalAcp: z.boolean().optional(),
+	geminiCliIdeMode: z.boolean().optional(),
+	geminiCliAllFiles: z.boolean().optional(),
 })
 
 const openAiNativeSchema = apiModelIdProviderModelSchema.extend({

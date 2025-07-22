@@ -1,18 +1,31 @@
 import { useCallback } from "react"
 import { VSCodeTextField } from "@vscode/webview-ui-toolkit/react"
+import { Checkbox } from "vscrui"
 
-import type { ProviderSettings } from "@roo-code/types"
+import type { ProviderSettings, OrganizationAllowList } from "@roo-code/types"
+import { geminiDefaultModelId } from "@roo-code/types"
 
 import { VSCodeButtonLink } from "@src/components/common/VSCodeButtonLink"
+import { useAppTranslation } from "@src/i18n/TranslationContext"
 
 import { inputEventTransform } from "../transforms"
+import { ModelPicker } from "../ModelPicker"
+import { MODELS_BY_PROVIDER } from "../constants"
 
 type GeminiCliProps = {
 	apiConfiguration: ProviderSettings
 	setApiConfigurationField: (field: keyof ProviderSettings, value: ProviderSettings[keyof ProviderSettings]) => void
+	organizationAllowList: OrganizationAllowList
+	modelValidationError?: string
 }
 
-export const GeminiCli = ({ apiConfiguration, setApiConfigurationField }: GeminiCliProps) => {
+export const GeminiCli = ({
+	apiConfiguration,
+	setApiConfigurationField,
+	organizationAllowList,
+	modelValidationError,
+}: GeminiCliProps) => {
+	const { t: _t } = useAppTranslation()
 	const handleInputChange = useCallback(
 		<K extends keyof ProviderSettings, E>(
 			field: K,
@@ -53,6 +66,99 @@ export const GeminiCli = ({ apiConfiguration, setApiConfigurationField }: Gemini
 					appearance="secondary">
 					Open Google Cloud Console
 				</VSCodeButtonLink>
+			</div>
+
+			<ModelPicker
+				apiConfiguration={apiConfiguration}
+				setApiConfigurationField={setApiConfigurationField}
+				defaultModelId={geminiDefaultModelId}
+				models={MODELS_BY_PROVIDER["gemini-cli"] ?? {}}
+				modelIdKey="geminiCliModelId"
+				serviceName="Google Gemini CLI"
+				serviceUrl="https://ai.google.dev/gemini-api/docs/models"
+				organizationAllowList={organizationAllowList}
+				errorMessage={modelValidationError}
+			/>
+
+			{/* Advanced CLI Options */}
+			<div className="mt-6">
+				<div className="text-sm font-medium mb-3">Advanced CLI Options</div>
+				<div className="text-xs text-vscode-descriptionForeground mb-4">
+					These options control advanced features of the Gemini CLI. Most users should leave these disabled.
+				</div>
+
+				<div className="space-y-3">
+					<Checkbox
+						checked={!!apiConfiguration?.geminiCliAllFiles}
+						onChange={(checked: boolean) => {
+							setApiConfigurationField("geminiCliAllFiles", checked)
+						}}>
+						<div>
+							<div className="font-medium">Include All Files (--all-files)</div>
+							<div className="text-xs text-vscode-descriptionForeground">
+								Automatically include all project files in the context. Use with caution for large
+								projects.
+							</div>
+						</div>
+					</Checkbox>
+
+					<Checkbox
+						checked={apiConfiguration?.geminiCliCheckpointing !== false}
+						onChange={(checked: boolean) => {
+							setApiConfigurationField("geminiCliCheckpointing", checked)
+						}}>
+						<div>
+							<div className="font-medium">Enable Checkpointing (--checkpointing) [Default: ON]</div>
+							<div className="text-xs text-vscode-descriptionForeground">
+								Enable CLI-level checkpointing for better file edit tracking.
+							</div>
+						</div>
+					</Checkbox>
+
+					<Checkbox
+						checked={!!apiConfiguration?.geminiCliExperimentalAcp}
+						onChange={(checked: boolean) => {
+							setApiConfigurationField("geminiCliExperimentalAcp", checked)
+						}}>
+						<div>
+							<div className="font-medium">
+								Experimental Agent Mode (--experimental-acp) [Default: OFF]
+							</div>
+							<div className="text-xs text-vscode-descriptionForeground">
+								Enable Agent Control Protocol for multi-file AI programming. May conflict with
+								Roo-Code&apos;s session management.
+							</div>
+						</div>
+					</Checkbox>
+
+					<Checkbox
+						checked={apiConfiguration?.geminiCliIdeMode !== false}
+						onChange={(checked: boolean) => {
+							setApiConfigurationField("geminiCliIdeMode", checked)
+						}}>
+						<div>
+							<div className="font-medium">IDE Mode (--ide-mode) [Default: ON]</div>
+							<div className="text-xs text-vscode-descriptionForeground">
+								Enable IDE-specific enhancements for better VS Code integration.
+							</div>
+						</div>
+					</Checkbox>
+
+					<div className="space-y-2">
+						<div className="flex items-center space-x-2">
+							<span className="text-sm font-medium text-light-text dark:text-dark-text">
+								MCP Server Integration
+							</span>
+							<span className="text-xs px-2 py-1 bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 rounded-full">
+								Automatic
+							</span>
+						</div>
+						<p className="text-xs text-light-text-secondary dark:text-dark-text-secondary">
+							Enabled MCP servers are automatically detected and passed to the Gemini CLI. No manual
+							configuration required.
+						</p>
+					</div>
+				</div>
 			</div>
 		</>
 	)
