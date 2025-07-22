@@ -8,7 +8,7 @@
  * - Token usage available in api_response event
  */
 
-import { createServer, IncomingMessage, ServerResponse } from "http"
+import * as http2 from "http2"
 import { TokenUsage } from "@roo-code/types"
 import { gunzipSync } from "zlib"
 
@@ -62,8 +62,9 @@ export class GeminiCliTelemetryReceiver {
 			throw new Error("Telemetry receiver is shutting down")
 		}
 
-		this.server = createServer((req, res) => {
-			console.log(`[GeminiCliTelemetryReceiver] Received ${req.method} request to ${req.url}`)
+		// Create HTTP/2 server for proper gRPC protocol support (like working standalone version)
+		this.server = http2.createServer((req, res) => {
+			process.stdout.write(`[GeminiCliTelemetryReceiver] Received ${req.method} request to ${req.url}\n`)
 			this.handleHttpRequest(req, res)
 		})
 
@@ -77,7 +78,7 @@ export class GeminiCliTelemetryReceiver {
 				}
 
 				this.port = address.port
-				console.log(`[GeminiCliTelemetryReceiver] Started HTTP OTLP receiver on port ${this.port}`)
+				process.stdout.write(`[GeminiCliTelemetryReceiver] Started HTTP/2 OTLP receiver on port ${this.port}\n`)
 				resolve(this.port)
 			})
 
@@ -93,7 +94,9 @@ export class GeminiCliTelemetryReceiver {
 	async waitForTelemetry(requestId: string, expectedResponseText?: string): Promise<TokenUsage | null> {
 		return new Promise((resolve) => {
 			const timeout = setTimeout(() => {
-				console.log(`[GeminiCliTelemetryReceiver] Request ${requestId} timed out waiting for telemetry`)
+				process.stdout.write(
+					`[GeminiCliTelemetryReceiver] Request ${requestId} timed out waiting for telemetry\n`,
+				)
 				this.pendingRequests.delete(requestId)
 				resolve(null)
 			}, this.REQUEST_TIMEOUT_MS)
@@ -106,94 +109,167 @@ export class GeminiCliTelemetryReceiver {
 				timeout,
 			})
 
-			console.log(`[GeminiCliTelemetryReceiver] Registered request ${requestId} for telemetry correlation`)
+			process.stdout.write(
+				`[GeminiCliTelemetryReceiver] Registered request ${requestId} for telemetry correlation\n`,
+			)
 		})
 	}
 
 	/**
-	 * Handle incoming HTTP requests (OTLP telemetry data)
+	 * Handle incoming HTTP requests (OTLP telemetry data) - using working HTTP/2 logic
 	 */
-	private async handleHttpRequest(req: IncomingMessage, res: ServerResponse): Promise<void> {
+	private async handleHttpRequest(req: http2.Http2ServerRequest, res: http2.Http2ServerResponse): Promise<void> {
+		process.stdout.write(`\n*** OTLP HTTP REQUEST RECEIVED ***\n`)
+		process.stdout.write(`Method: ${req.method}\n`)
+		process.stdout.write(`URL: ${req.url}\n`)
+		process.stdout.write(`Content-Type: ${req.headers["content-type"]}\n`)
+		process.stdout.write(`Content-Encoding: ${req.headers["content-encoding"]}\n`)
+		process.stdout.write(`gRPC-Encoding: ${req.headers["grpc-encoding"]}\n`)
+
 		if (req.method !== "POST") {
-			res.writeHead(405, { "Content-Type": "text/plain" })
-			res.end("Method Not Allowed")
+			res.writeHead(405, { "Content-Type": "application/json" })
+			res.end('{"error": "Method not allowed"}')
 			return
 		}
 
-		try {
-			// Collect request body
-			const chunks: Buffer[] = []
-			req.on("data", (chunk: Buffer) => {
-				chunks.push(chunk)
-			})
+		let body = Buffer.alloc(0)
+		req.on("data", (chunk: Buffer) => {
+			body = Buffer.concat([body, chunk])
+			process.stdout.write(`📦 Received chunk: ${chunk.length} bytes, total so far: ${body.length} bytes\n`)
+		})
 
-			req.on("end", () => {
-				try {
-					const body = Buffer.concat(chunks)
-					this.processTelemetryData(body, req.headers)
+		req.on("end", () => {
+			try {
+				process.stdout.write(`Body length: ${body.length} bytes\n`)
 
-					// Send gRPC success response
-					res.writeHead(200, {
-						"Content-Type": "application/grpc",
-						"grpc-status": "0",
-						"grpc-message": "OK",
-					})
-					res.end()
-				} catch (error) {
-					console.error("[GeminiCliTelemetryReceiver] Error processing telemetry:", error)
-					res.writeHead(500, { "Content-Type": "text/plain" })
-					res.end("Internal Server Error")
+				// Check if data is gzipped based on grpc-encoding header
+				const grpcEncoding = req.headers["grpc-encoding"]
+				process.stdout.write(`🗜️ gRPC encoding: ${grpcEncoding}\n`)
+
+				// Handle gRPC message framing FIRST: [compression flag (1 byte)][length (4 bytes)][message]
+				let protobufMessage = body
+				if (body.length > 5) {
+					const compressionFlag = body.readUInt8(0)
+					const messageLength = body.readUInt32BE(1)
+					process.stdout.write(
+						`📏 gRPC frame - compression: ${compressionFlag}, message length: ${messageLength}\n`,
+					)
+
+					if (messageLength > 0 && body.length >= 5 + messageLength) {
+						protobufMessage = body.slice(5, 5 + messageLength)
+						process.stdout.write(`📦 Extracted protobuf message: ${protobufMessage.length} bytes\n`)
+					} else {
+						process.stdout.write("⚠️ Invalid gRPC frame length, using full body\n")
+						protobufMessage = body
+					}
 				}
-			})
 
-			req.on("error", (error) => {
-				console.error("[GeminiCliTelemetryReceiver] Request error:", error)
-				res.writeHead(400, { "Content-Type": "text/plain" })
-				res.end("Bad Request")
-			})
-		} catch (error) {
-			console.error("[GeminiCliTelemetryReceiver] Error handling request:", error)
-			res.writeHead(500, { "Content-Type": "text/plain" })
-			res.end("Internal Server Error")
-		}
+				// THEN decompress the extracted message if gzipped
+				if (grpcEncoding === "gzip") {
+					try {
+						process.stdout.write("🗜️ Decompressing gzipped protobuf message...\n")
+						protobufMessage = gunzipSync(protobufMessage)
+						process.stdout.write(`📦 Decompressed size: ${protobufMessage.length} bytes\n`)
+					} catch (error) {
+						process.stdout.write(`❌ Failed to decompress gzipped data: ${(error as Error).message}\n`)
+						// Keep original message if decompression fails
+					}
+				}
+
+				// Process the telemetry data
+				this.processTelemetryData(protobufMessage, req.headers)
+
+				// Send proper gRPC response according to gRPC HTTP/2 protocol
+				res.writeHead(200, {
+					"content-type": "application/grpc",
+					"grpc-encoding": "identity",
+				})
+
+				// Create OTLP ExportLogsServiceResponse message
+				const otlpResponse = {
+					partialSuccess: {
+						rejectedLogRecords: 0,
+						errorMessage: "",
+					},
+				}
+
+				// Convert to JSON and then to buffer
+				const responseJson = JSON.stringify(otlpResponse)
+				const responseBuffer = Buffer.from(responseJson, "utf8")
+
+				// gRPC requires length-prefixed messages: [compression flag (1 byte)][length (4 bytes)][message]
+				const lengthPrefix = Buffer.alloc(5)
+				lengthPrefix.writeUInt8(0, 0) // No compression
+				lengthPrefix.writeUInt32BE(responseBuffer.length, 1) // Message length
+
+				// Send length-prefixed response message
+				res.write(Buffer.concat([lengthPrefix, responseBuffer]))
+
+				// Send trailers with grpc-status = 0 (OK)
+				res.addTrailers({
+					"grpc-status": "0",
+					"grpc-message": "",
+				})
+
+				res.end()
+
+				process.stdout.write("✅ Responded with OTLP success\n")
+			} catch (error) {
+				process.stdout.write(`❌ Error processing request: ${(error as Error).message}\n`)
+				res.writeHead(500, { "Content-Type": "application/json" })
+				res.end('{"error": "Internal server error"}')
+			}
+		})
+
+		req.on("error", (error) => {
+			process.stdout.write(`❌ Request error: ${(error as Error).message}\n`)
+			res.writeHead(400, { "Content-Type": "application/json" })
+			res.end('{"error": "Bad request"}')
+		})
 	}
 
 	/**
 	 * Process incoming telemetry data using official OpenTelemetry protobuf decoder
 	 */
-	private processTelemetryData(body: Buffer, headers: any): void {
+	private processTelemetryData(protobufMessage: Buffer, headers: any): void {
 		try {
-			// Handle gRPC message framing (5-byte header + payload)
-			let protobufMessage = body
-			if (body.length > 5 && body[0] === 0) {
-				// Skip gRPC message header (5 bytes: compression flag + message length)
-				protobufMessage = body.slice(5)
+			// Use the official OpenTelemetry protobuf decoder
+			let logsRequest
+			const contentType = headers["content-type"] || ""
+
+			try {
+				// Import the official protobuf types
+				const root = require("@opentelemetry/otlp-transformer/build/src/generated/root")
+				const logsRequestType = root.opentelemetry.proto.collector.logs.v1.ExportLogsServiceRequest
+
+				// Try to decode as JSON first
+				if (contentType && contentType.includes("application/json")) {
+					process.stdout.write("🔄 Decoding as JSON OTLP\n")
+					const jsonBody = protobufMessage.toString("utf8")
+					logsRequest = JSON.parse(jsonBody)
+				} else {
+					process.stdout.write("🔄 Decoding as Protobuf OTLP using official OpenTelemetry decoder\n")
+					logsRequest = logsRequestType.decode(protobufMessage)
+					process.stdout.write("✅ Successfully decoded with official OpenTelemetry protobuf decoder\n")
+				}
+			} catch (error) {
+				process.stdout.write("🤷 Failed to decode with official decoder, treating as raw data\n")
+				process.stdout.write(`❌ Decode error: ${(error as Error).message}\n`)
+				logsRequest = { rawData: protobufMessage.toString() }
 			}
 
-			// Handle gzip compression
-			const isGzipped =
-				headers["grpc-encoding"] === "gzip" ||
-				headers["content-encoding"] === "gzip" ||
-				(protobufMessage[0] === 0x1f && protobufMessage[1] === 0x8b)
+			process.stdout.write("📊 Decoded OTLP request structure:\n")
+			process.stdout.write(`📊 Full decoded data: ${JSON.stringify(logsRequest, null, 2)}\n`)
 
-			if (isGzipped) {
-				protobufMessage = gunzipSync(protobufMessage)
-			}
-
-			// Use official OpenTelemetry protobuf decoder
-			const root = require("@opentelemetry/otlp-transformer/build/src/generated/root")
-			const logsRequestType = root.opentelemetry.proto.collector.logs.v1.ExportLogsServiceRequest
-			const logsRequest = logsRequestType.decode(protobufMessage)
-
-			console.log(`[GeminiCliTelemetryReceiver] Successfully decoded OTLP telemetry data`)
-
-			// Extract telemetry events
+			// Extract telemetry events using the working logic
 			const events = this.extractTelemetryEvents(logsRequest)
 
 			// Process events for correlation
 			this.correlateTelemetryEvents(events)
 		} catch (error) {
-			console.error("[GeminiCliTelemetryReceiver] Error processing telemetry data:", error)
+			process.stdout.write(
+				`[GeminiCliTelemetryReceiver] Error processing telemetry data: ${(error as Error).message}\n`,
+			)
 		}
 	}
 
@@ -221,7 +297,7 @@ export class GeminiCliTelemetryReceiver {
 				}
 			}
 		} catch (error) {
-			console.error("[GeminiCliTelemetryReceiver] Error extracting events:", error)
+			process.stdout.write(`[GeminiCliTelemetryReceiver] Error extracting events: ${(error as Error).message}\n`)
 		}
 
 		return events
@@ -287,7 +363,7 @@ export class GeminiCliTelemetryReceiver {
 
 			return event
 		} catch (error) {
-			console.error("[GeminiCliTelemetryReceiver] Error parsing log record:", error)
+			process.stdout.write(`[GeminiCliTelemetryReceiver] Error parsing log record: ${(error as Error).message}\n`)
 			return null
 		}
 	}
@@ -316,10 +392,12 @@ export class GeminiCliTelemetryReceiver {
 	 * 3. No need to parse prompt_id from other events first
 	 */
 	private correlateTelemetryEvents(events: TelemetryEvent[]): void {
-		console.log(`[GeminiCliTelemetryReceiver] Processing ${events.length} telemetry events`)
+		process.stdout.write(`[GeminiCliTelemetryReceiver] Processing ${events.length} telemetry events\n`)
 
 		for (const event of events) {
-			console.log(`[GeminiCliTelemetryReceiver] Event: ${event.eventName}, promptId: ${event.promptId}`)
+			process.stdout.write(
+				`[GeminiCliTelemetryReceiver] Event: ${event.eventName}, promptId: ${event.promptId}\n`,
+			)
 
 			// Only process api_response events (they contain token usage)
 			if (event.eventName === "gemini_cli.api_response") {
@@ -343,8 +421,8 @@ export class GeminiCliTelemetryReceiver {
 			for (const [requestId, pendingRequest] of Array.from(this.pendingRequests.entries())) {
 				if (pendingRequest.responseText === event.responseText) {
 					matchedRequest = pendingRequest
-					console.log(
-						`[GeminiCliTelemetryReceiver] ✅ Matched request ${requestId} by response text (${event.responseText.substring(0, 50)}...)`,
+					process.stdout.write(
+						`[GeminiCliTelemetryReceiver] ✅ Matched request ${requestId} by response text (${event.responseText.substring(0, 50)}...)\n`,
 					)
 					break
 				}
@@ -368,8 +446,8 @@ export class GeminiCliTelemetryReceiver {
 
 			if (closestRequest) {
 				matchedRequest = closestRequest
-				console.log(
-					`[GeminiCliTelemetryReceiver] ⏱️ Matched request ${closestRequest.requestId} by time proximity (${minTimeDiff}ms)`,
+				process.stdout.write(
+					`[GeminiCliTelemetryReceiver] ⏱️ Matched request ${closestRequest.requestId} by time proximity (${minTimeDiff}ms)\n`,
 				)
 			}
 		}
@@ -389,14 +467,13 @@ export class GeminiCliTelemetryReceiver {
 				// Note: thoughts_token_count and tool_token_count are CLI-specific and not in standard interface
 			}
 
-			console.log(
-				`[GeminiCliTelemetryReceiver] Resolved request ${matchedRequest.requestId} with token usage:`,
-				tokenUsage,
+			process.stdout.write(
+				`[GeminiCliTelemetryReceiver] Resolved request ${matchedRequest.requestId} with token usage: ${JSON.stringify(tokenUsage)}\n`,
 			)
 			matchedRequest.resolve(tokenUsage)
 		} else {
-			console.log(
-				`[GeminiCliTelemetryReceiver] No matching request found for event with promptId: ${event.promptId}`,
+			process.stdout.write(
+				`[GeminiCliTelemetryReceiver] No matching request found for event with promptId: ${event.promptId}\n`,
 			)
 		}
 	}
@@ -417,7 +494,7 @@ export class GeminiCliTelemetryReceiver {
 		}
 
 		this.isShuttingDown = true
-		console.log("[GeminiCliTelemetryReceiver] Shutting down telemetry receiver...")
+		process.stdout.write("[GeminiCliTelemetryReceiver] Shutting down telemetry receiver...\n")
 
 		// Clear all pending requests
 		for (const [requestId, pendingRequest] of Array.from(this.pendingRequests.entries())) {
@@ -430,7 +507,7 @@ export class GeminiCliTelemetryReceiver {
 		if (this.server) {
 			return new Promise((resolve) => {
 				this.server!.close(() => {
-					console.log("[GeminiCliTelemetryReceiver] Telemetry receiver shut down")
+					process.stdout.write("[GeminiCliTelemetryReceiver] Telemetry receiver shut down\n")
 					resolve()
 				})
 			})

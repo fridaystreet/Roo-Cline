@@ -95,7 +95,8 @@ describe("GeminiCliHandler", () => {
 
 	describe("completePrompt", () => {
 		// Skip integration tests in CI/CD - these are for manual testing only
-		const shouldSkipIntegration = process.env.CI === "true" || !process.env.GEMINI_CLI_TEST
+		// Temporarily enable integration test for debugging telemetry
+		const shouldSkipIntegration = false // process.env.CI === "true" || !process.env.GEMINI_CLI_TEST
 
 		it("should build CLI arguments with advanced options", async () => {
 			// This test verifies the CLI argument building logic without actually invoking the CLI
@@ -180,7 +181,7 @@ describe("GeminiCliHandler", () => {
 				expect(mockStdin.end).toHaveBeenCalled()
 			} catch (error) {
 				// Test may fail due to mocking complexity, but we verified the logic
-				console.log("Mock test completed with expected behavior")
+				process.stdout.write("Mock test completed with expected behavior\n")
 			}
 		})
 
@@ -240,19 +241,18 @@ describe("GeminiCliHandler", () => {
 				expect(mockStdin.end).toHaveBeenCalled()
 			} catch (error) {
 				// Test may fail due to mocking complexity, but we verified the logic
-				console.log("Mock test completed with expected behavior")
+				process.stdout.write("Mock test completed with expected behavior\n")
 			}
 		})
 
 		it("should complete prompt successfully with project ID", async () => {
 			if (shouldSkipIntegration) {
-				console.log("⏭️ Skipping integration test - set GEMINI_CLI_TEST=true to enable")
+				process.stdout.write("⏭️ Skipping integration test - set GEMINI_CLI_TEST=true to enable\n")
 				return
 			}
 
 			// Force console output to be visible in Vitest
 			const log = (msg: string) => {
-				console.log(msg)
 				process.stdout.write(`${msg}\n`)
 			}
 
@@ -335,11 +335,12 @@ describe("GeminiCliHandler", () => {
 	})
 
 	describe("createMessage", () => {
-		const shouldSkipIntegration = process.env.CI === "true" || !process.env.GEMINI_CLI_TEST
+		// Temporarily enable integration test for debugging telemetry
+		const shouldSkipIntegration = false // process.env.CI === "true" || !process.env.GEMINI_CLI_TEST
 
 		it("should handle streaming messages", async () => {
 			if (shouldSkipIntegration) {
-				console.log("⏭️ Skipping streaming test - set GEMINI_CLI_TEST=true to enable")
+				process.stdout.write("⏭️ Skipping streaming test - set GEMINI_CLI_TEST=true to enable\n")
 				return
 			}
 
@@ -369,7 +370,7 @@ describe("GeminiCliHandler", () => {
 			expect(fullResponse).toBeDefined()
 			expect(fullResponse.length).toBeGreaterThan(0)
 
-			console.log("✅ Streaming Response:", fullResponse)
+			process.stdout.write(`✅ Streaming Response: ${fullResponse}\n`)
 		}, 30000)
 
 		it("should handle complex message content", async () => {
@@ -406,7 +407,7 @@ describe("GeminiCliHandler", () => {
 
 		it("should preserve conversation context in multi-turn conversations", async () => {
 			if (shouldSkipIntegration) {
-				console.log("⏭️ Skipping context test - set GEMINI_CLI_TEST=true to enable")
+				process.stdout.write("⏭️ Skipping context test - set GEMINI_CLI_TEST=true to enable\n")
 				return
 			}
 
@@ -446,7 +447,7 @@ describe("GeminiCliHandler", () => {
 			// The response should mention "Alice" since the context should be preserved
 			expect(fullResponse.toLowerCase()).toContain("alice")
 
-			console.log("✅ Context-aware Response:", fullResponse)
+			process.stdout.write(`✅ Context-aware Response: ${fullResponse}\n`)
 		}, 30000)
 	})
 
