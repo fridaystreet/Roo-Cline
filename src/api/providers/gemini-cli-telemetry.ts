@@ -1,51 +1,57 @@
-import { EventEmitter } from "events"
-import { createServer, Server, IncomingMessage, ServerResponse } from "http"
-import { URL } from "url"
-import { randomUUID } from "crypto"
-
 /**
- * Token usage data extracted from OTLP telemetry
+ * Final Working Gemini CLI OTLP Telemetry Receiver
+ *
+ * Based on validation findings:
+ * - CLI uses HTTP/2 POST with gRPC message framing and gzip compression
+ * - Official OpenTelemetry protobuf decoder works perfectly
+ * - Correlation via prompt_id (primary) and response_text (secondary)
+ * - Token usage available in api_response event
  */
-export interface TokenUsage {
-	inputTokens: number
-	outputTokens: number
-	cacheReadTokens: number
-	reasoningTokens: number
-	totalTokens: number
+
+import { createServer, IncomingMessage, ServerResponse } from "http"
+import { TokenUsage } from "@roo-code/types"
+import { gunzipSync } from "zlib"
+
+interface TelemetryEvent {
+	eventName: string
+	promptId?: string
+	prompt?: string
+	requestText?: string
+	responseText?: string
+	inputTokenCount?: number
+	outputTokenCount?: number
+	cachedContentTokenCount?: number
+	thoughtsTokenCount?: number
+	toolTokenCount?: number
+	totalTokenCount?: number
+	timestamp?: string
+	sessionId?: string
 }
 
-/**
- * Pending request waiting for telemetry data
- */
 interface PendingRequest {
 	requestId: string
+	responseText?: string
 	startTime: number
-	resolve: (usage: TokenUsage | null) => void
+	resolve: (tokenUsage: TokenUsage | null) => void
 	timeout: NodeJS.Timeout
 }
 
-/**
- * Robust, multi-window safe OTLP receiver for Gemini CLI telemetry
- * Features:
- * - Request-level correlation with unique IDs
- * - Timestamp-based matching for concurrent requests
- * - Timeout handling to prevent hanging requests
- * - Multi-window isolation (each VS Code window gets its own receiver)
- * - Automatic cleanup and lifecycle management
- */
-export class GeminiCliTelemetryReceiver extends EventEmitter {
-	private server: Server | null = null
+export class GeminiCliTelemetryReceiver {
+	private server: any = null
 	private port: number = 0
+	private isShuttingDown: boolean = false
 	private pendingRequests = new Map<string, PendingRequest>()
-	private isShuttingDown = false
+	private readonly REQUEST_TIMEOUT_MS = 30000 // 30 seconds
 
 	constructor() {
-		super()
+		// Auto-cleanup on process exit
+		process.on("exit", () => this.shutdown())
+		process.on("SIGINT", () => this.shutdown())
+		process.on("SIGTERM", () => this.shutdown())
 	}
 
 	/**
-	 * Start the HTTP OTLP receiver on a random available port
-	 * @returns The port number the receiver is listening on
+	 * Start the telemetry receiver on an available port
 	 */
 	async start(): Promise<number> {
 		if (this.server) {
@@ -57,6 +63,7 @@ export class GeminiCliTelemetryReceiver extends EventEmitter {
 		}
 
 		this.server = createServer((req, res) => {
+			console.log(`[GeminiCliTelemetryReceiver] Received ${req.method} request to ${req.url}`)
 			this.handleHttpRequest(req, res)
 		})
 
@@ -74,249 +81,211 @@ export class GeminiCliTelemetryReceiver extends EventEmitter {
 				resolve(this.port)
 			})
 
-			this.server!.on("error", reject)
-		})
-	}
-
-	/**
-	 * Stop the HTTP OTLP receiver and clean up all pending requests
-	 */
-	async stop(): Promise<void> {
-		if (!this.server) {
-			return
-		}
-
-		this.isShuttingDown = true
-
-		// Cancel all pending requests
-		for (const [requestId, pending] of this.pendingRequests) {
-			clearTimeout(pending.timeout)
-			pending.resolve(null) // Resolve with null to indicate no telemetry data
-		}
-		this.pendingRequests.clear()
-
-		return new Promise((resolve) => {
-			this.server!.close(() => {
-				console.log("[GeminiCliTelemetryReceiver] Stopped")
-				this.server = null
-				this.port = 0
-				this.isShuttingDown = false
-				resolve()
+			this.server!.on("error", (error: Error) => {
+				reject(error)
 			})
 		})
 	}
 
 	/**
-	 * Get the number of pending requests waiting for telemetry
+	 * Register a request and wait for its telemetry data
 	 */
-	getPendingRequestCount(): number {
-		return this.pendingRequests.size
-	}
-
-	/**
-	 * Get the current port the receiver is listening on
-	 */
-	getPort(): number {
-		return this.port
-	}
-
-	/**
-	 * Check if the receiver is currently running
-	 */
-	isRunning(): boolean {
-		return this.server !== null && this.port > 0
-	}
-
-	/**
-	 * Wait for token usage data for a specific request
-	 * This is the main method that providers should use
-	 * @param timeoutMs Maximum time to wait for telemetry data (default: 30 seconds)
-	 * @returns Promise that resolves with token usage data or null if timeout/error
-	 */
-	waitForTokenUsage(timeoutMs: number = 30000): Promise<TokenUsage | null> {
-		if (this.isShuttingDown) {
-			return Promise.resolve(null)
-		}
-
-		const requestId = randomUUID()
-		console.log(`[GeminiCliTelemetryReceiver] Waiting for telemetry data for request ${requestId}`)
-
+	async waitForTelemetry(requestId: string, expectedResponseText?: string): Promise<TokenUsage | null> {
 		return new Promise((resolve) => {
 			const timeout = setTimeout(() => {
+				console.log(`[GeminiCliTelemetryReceiver] Request ${requestId} timed out waiting for telemetry`)
 				this.pendingRequests.delete(requestId)
-				console.log(`[GeminiCliTelemetryReceiver] Timeout waiting for telemetry data for request ${requestId}`)
 				resolve(null)
-			}, timeoutMs)
+			}, this.REQUEST_TIMEOUT_MS)
 
 			this.pendingRequests.set(requestId, {
 				requestId,
+				responseText: expectedResponseText,
 				startTime: Date.now(),
 				resolve,
 				timeout,
 			})
+
+			console.log(`[GeminiCliTelemetryReceiver] Registered request ${requestId} for telemetry correlation`)
 		})
 	}
 
 	/**
-	 * Match incoming telemetry data to the most appropriate pending request
-	 * Uses timestamp-based matching since CLI doesn't provide request IDs
+	 * Handle incoming HTTP requests (OTLP telemetry data)
 	 */
-	private matchAndResolvePendingRequest(tokenUsage: TokenUsage): void {
-		if (this.pendingRequests.size === 0) {
-			console.log("[GeminiCliTelemetryReceiver] Received telemetry but no pending requests")
+	private async handleHttpRequest(req: IncomingMessage, res: ServerResponse): Promise<void> {
+		if (req.method !== "POST") {
+			res.writeHead(405, { "Content-Type": "text/plain" })
+			res.end("Method Not Allowed")
 			return
 		}
 
-		// Find the oldest pending request (most likely to match)
-		// In practice, telemetry usually arrives shortly after the CLI call completes
-		let oldestRequest: PendingRequest | null = null
-		let oldestRequestId: string | null = null
-
-		for (const [requestId, pending] of this.pendingRequests) {
-			if (!oldestRequest || pending.startTime < oldestRequest.startTime) {
-				oldestRequest = pending
-				oldestRequestId = requestId
-			}
-		}
-
-		if (oldestRequest && oldestRequestId) {
-			console.log(`[GeminiCliTelemetryReceiver] Matched telemetry to request ${oldestRequestId}`)
-
-			// Clear timeout and resolve the request
-			clearTimeout(oldestRequest.timeout)
-			this.pendingRequests.delete(oldestRequestId)
-			oldestRequest.resolve(tokenUsage)
-		}
-	}
-
-	/**
-	 * Handle incoming HTTP OTLP requests
-	 */
-	private handleHttpRequest(req: IncomingMessage, res: ServerResponse): void {
 		try {
-			// Only handle POST requests to /v1/logs
-			if (req.method !== "POST") {
-				res.writeHead(405, { "Content-Type": "text/plain" })
-				res.end("Method Not Allowed")
-				return
-			}
-
-			const url = new URL(req.url || "/", `http://${req.headers.host}`)
-			if (url.pathname !== "/v1/logs") {
-				res.writeHead(404, { "Content-Type": "text/plain" })
-				res.end("Not Found")
-				return
-			}
-
 			// Collect request body
-			let body = ""
-			req.on("data", (chunk) => {
-				body += chunk.toString()
+			const chunks: Buffer[] = []
+			req.on("data", (chunk: Buffer) => {
+				chunks.push(chunk)
 			})
 
 			req.on("end", () => {
 				try {
-					// Parse JSON request body
-					const request = JSON.parse(body)
+					const body = Buffer.concat(chunks)
+					this.processTelemetryData(body, req.headers)
 
-					// Extract token usage from log records
-					const tokenUsage = this.extractTokenUsage(request)
-					if (tokenUsage) {
-						// Match this telemetry to the most appropriate pending request
-						this.matchAndResolvePendingRequest(tokenUsage)
-						this.emit("tokenUsage", tokenUsage)
-					}
-
-					// Send success response
-					res.writeHead(200, { "Content-Type": "application/json" })
-					res.end(JSON.stringify({ partialSuccess: null }))
+					// Send gRPC success response
+					res.writeHead(200, {
+						"Content-Type": "application/grpc",
+						"grpc-status": "0",
+						"grpc-message": "OK",
+					})
+					res.end()
 				} catch (error) {
-					console.error("[GeminiCliTelemetryReceiver] Error parsing request:", error)
-					res.writeHead(400, { "Content-Type": "text/plain" })
-					res.end("Bad Request")
+					console.error("[GeminiCliTelemetryReceiver] Error processing telemetry:", error)
+					res.writeHead(500, { "Content-Type": "text/plain" })
+					res.end("Internal Server Error")
 				}
 			})
+
+			req.on("error", (error) => {
+				console.error("[GeminiCliTelemetryReceiver] Request error:", error)
+				res.writeHead(400, { "Content-Type": "text/plain" })
+				res.end("Bad Request")
+			})
 		} catch (error) {
-			console.error("[GeminiCliTelemetryReceiver] Error handling HTTP request:", error)
+			console.error("[GeminiCliTelemetryReceiver] Error handling request:", error)
 			res.writeHead(500, { "Content-Type": "text/plain" })
 			res.end("Internal Server Error")
 		}
 	}
 
 	/**
-	 * Extract token usage data from OTLP log records
+	 * Process incoming telemetry data using official OpenTelemetry protobuf decoder
 	 */
-	private extractTokenUsage(request: any): TokenUsage | null {
+	private processTelemetryData(body: Buffer, headers: any): void {
 		try {
-			if (!request.resourceLogs) {
-				return null
+			// Handle gRPC message framing (5-byte header + payload)
+			let protobufMessage = body
+			if (body.length > 5 && body[0] === 0) {
+				// Skip gRPC message header (5 bytes: compression flag + message length)
+				protobufMessage = body.slice(5)
 			}
 
-			for (const resourceLog of request.resourceLogs) {
-				if (!resourceLog.scopeLogs) {
-					continue
-				}
+			// Handle gzip compression
+			const isGzipped =
+				headers["grpc-encoding"] === "gzip" ||
+				headers["content-encoding"] === "gzip" ||
+				(protobufMessage[0] === 0x1f && protobufMessage[1] === 0x8b)
 
-				for (const scopeLog of resourceLog.scopeLogs) {
-					if (!scopeLog.logRecords) {
-						continue
-					}
-
-					for (const logRecord of scopeLog.logRecords) {
-						// Look for API response events with token usage
-						const tokenUsage = this.parseLogRecordForTokens(logRecord)
-						if (tokenUsage) {
-							return tokenUsage
-						}
-					}
-				}
+			if (isGzipped) {
+				protobufMessage = gunzipSync(protobufMessage)
 			}
 
-			return null
+			// Use official OpenTelemetry protobuf decoder
+			const root = require("@opentelemetry/otlp-transformer/build/src/generated/root")
+			const logsRequestType = root.opentelemetry.proto.collector.logs.v1.ExportLogsServiceRequest
+			const logsRequest = logsRequestType.decode(protobufMessage)
+
+			console.log(`[GeminiCliTelemetryReceiver] Successfully decoded OTLP telemetry data`)
+
+			// Extract telemetry events
+			const events = this.extractTelemetryEvents(logsRequest)
+
+			// Process events for correlation
+			this.correlateTelemetryEvents(events)
 		} catch (error) {
-			console.error("[GeminiCliTelemetryReceiver] Error extracting token usage:", error)
-			return null
+			console.error("[GeminiCliTelemetryReceiver] Error processing telemetry data:", error)
 		}
 	}
 
 	/**
-	 * Parse a single log record for token usage data
+	 * Extract telemetry events from decoded OTLP data
 	 */
-	private parseLogRecordForTokens(logRecord: any): TokenUsage | null {
+	private extractTelemetryEvents(logsRequest: any): TelemetryEvent[] {
+		const events: TelemetryEvent[] = []
+
 		try {
-			if (!logRecord.attributes) {
-				return null
-			}
+			const resourceLogs = logsRequest.resourceLogs || logsRequest.resource_logs || []
 
-			// Look for attributes containing token counts
-			const attributes: Record<string, any> = {}
-			for (const attr of logRecord.attributes) {
-				if (attr.key && attr.value) {
-					attributes[attr.key] = this.extractAttributeValue(attr.value)
-				}
-			}
+			for (const resourceLog of resourceLogs) {
+				const scopeLogs = resourceLog.scopeLogs || resourceLog.scope_logs || []
 
-			// Check if this is an API response event with token data
-			if (attributes["event.name"] === "api_response" || attributes["event.name"] === "EVENT_API_RESPONSE") {
-				const inputTokens = attributes["input_token_count"] || 0
-				const outputTokens = attributes["output_token_count"] || 0
-				const cacheReadTokens = attributes["cached_content_token_count"] || 0
-				const reasoningTokens = attributes["thoughts_token_count"] || 0
-				const totalTokens = attributes["total_token_count"] || 0
+				for (const scopeLog of scopeLogs) {
+					const logRecords = scopeLog.logRecords || scopeLog.log_records || []
 
-				// Only return if we have actual token data
-				if (inputTokens > 0 || outputTokens > 0 || totalTokens > 0) {
-					return {
-						inputTokens,
-						outputTokens,
-						cacheReadTokens,
-						reasoningTokens,
-						totalTokens,
+					for (const logRecord of logRecords) {
+						const event = this.parseLogRecord(logRecord)
+						if (event) {
+							events.push(event)
+						}
 					}
 				}
 			}
+		} catch (error) {
+			console.error("[GeminiCliTelemetryReceiver] Error extracting events:", error)
+		}
 
-			return null
+		return events
+	}
+
+	/**
+	 * Parse individual log record into telemetry event
+	 */
+	private parseLogRecord(logRecord: any): TelemetryEvent | null {
+		try {
+			const attributes = logRecord.attributes || []
+			const event: TelemetryEvent = {
+				eventName: "unknown",
+			}
+
+			// Extract attributes
+			for (const attr of attributes) {
+				const key = attr.key
+				const value = attr.value
+
+				switch (key) {
+					case "event.name":
+						event.eventName = this.extractStringValue(value) || "unknown_event"
+						break
+					case "prompt_id":
+						event.promptId = this.extractStringValue(value)
+						break
+					case "prompt":
+						event.prompt = this.extractStringValue(value)
+						break
+					case "request_text":
+						event.requestText = this.extractStringValue(value)
+						break
+					case "response_text":
+						event.responseText = this.extractStringValue(value)
+						break
+					case "input_token_count":
+						event.inputTokenCount = this.extractIntValue(value)
+						break
+					case "output_token_count":
+						event.outputTokenCount = this.extractIntValue(value)
+						break
+					case "cached_content_token_count":
+						event.cachedContentTokenCount = this.extractIntValue(value)
+						break
+					case "thoughts_token_count":
+						event.thoughtsTokenCount = this.extractIntValue(value)
+						break
+					case "tool_token_count":
+						event.toolTokenCount = this.extractIntValue(value)
+						break
+					case "total_token_count":
+						event.totalTokenCount = this.extractIntValue(value)
+						break
+					case "event.timestamp":
+						event.timestamp = this.extractStringValue(value)
+						break
+					case "session.id":
+						event.sessionId = this.extractStringValue(value)
+						break
+				}
+			}
+
+			return event
 		} catch (error) {
 			console.error("[GeminiCliTelemetryReceiver] Error parsing log record:", error)
 			return null
@@ -324,21 +293,156 @@ export class GeminiCliTelemetryReceiver extends EventEmitter {
 	}
 
 	/**
-	 * Extract value from OTLP attribute value
+	 * Extract string value from protobuf attribute value
 	 */
-	private extractAttributeValue(value: any): any {
-		if (value.stringValue !== undefined) {
-			return value.stringValue
-		}
-		if (value.intValue !== undefined) {
-			return parseInt(value.intValue, 10)
-		}
-		if (value.doubleValue !== undefined) {
-			return value.doubleValue
-		}
-		if (value.boolValue !== undefined) {
-			return value.boolValue
-		}
-		return null
+	private extractStringValue(value: any): string | undefined {
+		return value?.stringValue || undefined
 	}
+
+	/**
+	 * Extract integer value from protobuf attribute value
+	 */
+	private extractIntValue(value: any): number | undefined {
+		const intValue = value?.intValue
+		return intValue ? parseInt(intValue, 10) : undefined
+	}
+
+	/**
+	 * Correlate telemetry events with pending requests
+	 *
+	 * Strategy: We primarily match by response_text since:
+	 * 1. CLI stdout === telemetry response_text (exact match)
+	 * 2. Each response is unique, even for identical prompts
+	 * 3. No need to parse prompt_id from other events first
+	 */
+	private correlateTelemetryEvents(events: TelemetryEvent[]): void {
+		console.log(`[GeminiCliTelemetryReceiver] Processing ${events.length} telemetry events`)
+
+		for (const event of events) {
+			console.log(`[GeminiCliTelemetryReceiver] Event: ${event.eventName}, promptId: ${event.promptId}`)
+
+			// Only process api_response events (they contain token usage)
+			if (event.eventName === "gemini_cli.api_response") {
+				this.matchEventToRequest(event)
+			}
+		}
+	}
+
+	/**
+	 * Match telemetry event to pending request using correlation strategy
+	 *
+	 * Primary: Response text matching (CLI stdout === telemetry response_text)
+	 * Fallback: Time proximity matching
+	 */
+	private matchEventToRequest(event: TelemetryEvent): void {
+		let matchedRequest: PendingRequest | null = null
+
+		// Primary Strategy: Match by response text (most reliable)
+		// This works because CLI stdout exactly matches telemetry response_text
+		if (event.responseText) {
+			for (const [requestId, pendingRequest] of Array.from(this.pendingRequests.entries())) {
+				if (pendingRequest.responseText === event.responseText) {
+					matchedRequest = pendingRequest
+					console.log(
+						`[GeminiCliTelemetryReceiver] ✅ Matched request ${requestId} by response text (${event.responseText.substring(0, 50)}...)`,
+					)
+					break
+				}
+			}
+		}
+
+		// Fallback Strategy: Match by time proximity
+		if (!matchedRequest && event.timestamp) {
+			const eventTime = new Date(event.timestamp).getTime()
+			let closestRequest: PendingRequest | null = null
+			let minTimeDiff = Infinity
+
+			for (const [requestId, pendingRequest] of Array.from(this.pendingRequests.entries())) {
+				const timeDiff = Math.abs(eventTime - pendingRequest.startTime)
+				if (timeDiff < minTimeDiff && timeDiff < 60000) {
+					// Within 1 minute
+					minTimeDiff = timeDiff
+					closestRequest = pendingRequest
+				}
+			}
+
+			if (closestRequest) {
+				matchedRequest = closestRequest
+				console.log(
+					`[GeminiCliTelemetryReceiver] ⏱️ Matched request ${closestRequest.requestId} by time proximity (${minTimeDiff}ms)`,
+				)
+			}
+		}
+
+		// Resolve matched request with token usage
+		if (matchedRequest) {
+			clearTimeout(matchedRequest.timeout)
+			this.pendingRequests.delete(matchedRequest.requestId)
+
+			const tokenUsage: TokenUsage = {
+				totalTokensIn: event.inputTokenCount || 0,
+				totalTokensOut: event.outputTokenCount || 0,
+				totalCost: 0, // Gemini CLI uses Google Code Assist quotas, not per-token billing
+				contextTokens: event.inputTokenCount || 0,
+				totalCacheReads: event.cachedContentTokenCount || 0,
+				totalCacheWrites: 0, // Not provided by Gemini CLI telemetry
+				// Note: thoughts_token_count and tool_token_count are CLI-specific and not in standard interface
+			}
+
+			console.log(
+				`[GeminiCliTelemetryReceiver] Resolved request ${matchedRequest.requestId} with token usage:`,
+				tokenUsage,
+			)
+			matchedRequest.resolve(tokenUsage)
+		} else {
+			console.log(
+				`[GeminiCliTelemetryReceiver] No matching request found for event with promptId: ${event.promptId}`,
+			)
+		}
+	}
+
+	/**
+	 * Get the port the receiver is running on
+	 */
+	getPort(): number {
+		return this.port
+	}
+
+	/**
+	 * Shutdown the telemetry receiver
+	 */
+	async shutdown(): Promise<void> {
+		if (this.isShuttingDown) {
+			return
+		}
+
+		this.isShuttingDown = true
+		console.log("[GeminiCliTelemetryReceiver] Shutting down telemetry receiver...")
+
+		// Clear all pending requests
+		for (const [requestId, pendingRequest] of Array.from(this.pendingRequests.entries())) {
+			clearTimeout(pendingRequest.timeout)
+			pendingRequest.resolve(null)
+		}
+		this.pendingRequests.clear()
+
+		// Close server
+		if (this.server) {
+			return new Promise((resolve) => {
+				this.server!.close(() => {
+					console.log("[GeminiCliTelemetryReceiver] Telemetry receiver shut down")
+					resolve()
+				})
+			})
+		}
+	}
+}
+
+/**
+ * Create a new telemetry receiver instance (single-use pattern for perfect isolation)
+ */
+export async function createTelemetryReceiver(): Promise<GeminiCliTelemetryReceiver> {
+	const receiver = new GeminiCliTelemetryReceiver()
+	await receiver.start()
+	return receiver
 }

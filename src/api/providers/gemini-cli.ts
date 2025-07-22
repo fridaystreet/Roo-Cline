@@ -11,16 +11,22 @@ import type { ApiStream } from "../transform/stream"
 import type { SingleCompletionHandler, ApiHandlerCreateMessageMetadata } from "../index"
 import { BaseProvider } from "./base-provider"
 import { geminiDefaultModelId, geminiModels, type GeminiModelId, type ModelInfo } from "@roo-code/types"
-import { GeminiCliTelemetryReceiver, type TokenUsage } from "./gemini-cli-telemetry"
+import type { TokenUsage } from "@roo-code/types"
 
 export class GeminiCliHandler extends BaseProvider implements SingleCompletionHandler {
 	protected options: ApiHandlerOptions
-	private telemetryReceiver: GeminiCliTelemetryReceiver | null = null
 	private lastTokenUsage: TokenUsage | null = null
 
 	constructor(options: ApiHandlerOptions) {
 		super()
 		this.options = options
+	}
+
+	/**
+	 * Get the last captured token usage from telemetry
+	 */
+	getLastTokenUsage(): TokenUsage | null {
+		return this.lastTokenUsage
 	}
 
 	/**
@@ -115,11 +121,15 @@ export class GeminiCliHandler extends BaseProvider implements SingleCompletionHa
 	async completePrompt(prompt: string): Promise<string> {
 		await this.ensureSettingsFile()
 
-		// Start telemetry receiver if telemetry is enabled
-		let telemetryPort: number | null = null
-		if (this.options.geminiCliTelemetry) {
-			telemetryPort = await this.startTelemetryReceiver()
-		}
+		// Generate unique request ID for telemetry correlation
+		const requestId = `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+
+		// Create single-use telemetry receiver (always enabled)
+		process.stdout.write(`🔗 Creating telemetry receiver...\n`)
+		const telemetrySetup = await this.createTelemetryReceiver(requestId)
+		const telemetryReceiver = telemetrySetup.receiver
+		const telemetryPort = telemetrySetup.port
+		process.stdout.write(`🔗 Telemetry receiver created on port ${telemetryPort}\n`)
 
 		const { id: model } = this.getModel()
 
@@ -150,8 +160,10 @@ export class GeminiCliHandler extends BaseProvider implements SingleCompletionHa
 
 		// Always enable telemetry for token usage tracking (essential for provider operation)
 		if (telemetryPort) {
-			args.push("--telemetry")
+			args.push("--telemetry", "true")
+			args.push("--telemetry-target", "local")
 			args.push("--telemetry-otlp-endpoint", `http://localhost:${telemetryPort}`)
+			process.stdout.write(`🔗 CLI will use telemetry endpoint: http://localhost:${telemetryPort}\n`)
 		}
 
 		// Add MCP servers if any are enabled (automatically detected)
@@ -170,6 +182,11 @@ export class GeminiCliHandler extends BaseProvider implements SingleCompletionHa
 		if (this.options.geminiCliIdeMode !== false) {
 			args.push("--ide-mode")
 		}
+
+		// Debug logging for CLI invocation
+		process.stdout.write(`🚀 CLI Command: npx https://github.com/google-gemini/gemini-cli ${args.join(" ")}\n`)
+		process.stdout.write(`🔧 CLI Environment: ${JSON.stringify(env)}\n`)
+		process.stdout.write(`📝 CLI Prompt length: ${prompt.length} characters\n`)
 
 		return new Promise((resolve, reject) => {
 			const child = spawn("npx", ["https://github.com/google-gemini/gemini-cli", ...args], {
@@ -236,30 +253,41 @@ export class GeminiCliHandler extends BaseProvider implements SingleCompletionHa
 					return
 				}
 
-				// Wait for token usage from telemetry receiver if enabled
-				if (this.options.geminiCliTelemetry && this.telemetryReceiver) {
-					const usage = await this.telemetryReceiver.waitForTokenUsage()
-					if (usage) {
-						console.log(
-							`🔗 Gemini CLI Token Usage: Input: ${usage.inputTokens.toLocaleString()}, ` +
-								`Output: ${usage.outputTokens.toLocaleString()}` +
-								(usage.cacheReadTokens ? `, Cache: ${usage.cacheReadTokens.toLocaleString()}` : "") +
-								(usage.reasoningTokens
-									? `, Reasoning: ${usage.reasoningTokens.toLocaleString()}`
-									: "") +
-								` | Total: ${usage.totalTokens.toLocaleString()}`,
-						)
-						// Store usage data for later retrieval by the task system
-						this.lastTokenUsage = usage
-					} else {
-						console.log("🔗 Gemini CLI: No token usage information captured from telemetry receiver")
+				// Wait for token usage from single-use telemetry receiver (always enabled)
+				if (telemetryReceiver) {
+					try {
+						// Wait for telemetry data, passing the CLI response for correlation
+						const usage = await telemetryReceiver.waitForTelemetry(requestId, output)
+						if (usage) {
+							console.log(
+								`🔗 Gemini CLI Token Usage: Input: ${usage.totalTokensIn.toLocaleString()}, ` +
+									`Output: ${usage.totalTokensOut.toLocaleString()}` +
+									(usage.totalCacheReads
+										? `, Cache: ${usage.totalCacheReads.toLocaleString()}`
+										: "") +
+									` | Total: ${(usage.totalTokensIn + usage.totalTokensOut).toLocaleString()}`,
+							)
+							// Store usage data for later retrieval by the task system
+							this.lastTokenUsage = usage
+						} else {
+							console.log("🔗 Gemini CLI: No token usage information captured from telemetry receiver")
+						}
+					} finally {
+						// Always shut down the single-use telemetry receiver
+						try {
+							await telemetryReceiver.shutdown()
+							console.log("🔗 Gemini CLI: Single-use telemetry receiver shut down")
+						} catch (shutdownError) {
+							console.error("🔗 Gemini CLI: Error shutting down telemetry receiver:", shutdownError)
+						}
 					}
-
-					// Stop telemetry receiver
-					await this.stopTelemetryReceiver()
+				} else {
+					console.log("🔗 Gemini CLI: Telemetry disabled or receiver not available")
 				}
 
-				resolve(output.trim())
+				// Filter out OpenTelemetry SDK messages from the output
+				const filteredOutput = this.filterCliOutput(output)
+				resolve(filteredOutput.trim())
 			})
 
 			child.on("error", (error) => {
@@ -269,27 +297,66 @@ export class GeminiCliHandler extends BaseProvider implements SingleCompletionHa
 	}
 
 	/**
-	 * Start the telemetry receiver to capture token usage from Gemini CLI
+	 * Find an available port for the telemetry receiver
 	 */
-	private async startTelemetryReceiver(): Promise<number> {
-		if (this.telemetryReceiver) {
-			return this.telemetryReceiver.getPort()
-		}
+	private async findAvailablePort(): Promise<number> {
+		const net = require("net")
 
-		this.telemetryReceiver = new GeminiCliTelemetryReceiver()
-		return await this.telemetryReceiver.start()
+		return new Promise((resolve, reject) => {
+			const server = net.createServer()
+			server.listen(0, () => {
+				const port = server.address()?.port
+				server.close(() => {
+					if (port) {
+						resolve(port)
+					} else {
+						reject(new Error("Could not find available port"))
+					}
+				})
+			})
+			server.on("error", reject)
+		})
 	}
 
 	/**
-	 * Stop the telemetry receiver
+	 * Create a single-use telemetry receiver for this request
 	 */
-	private async stopTelemetryReceiver(): Promise<void> {
-		if (!this.telemetryReceiver) {
-			return
-		}
+	private async createTelemetryReceiver(requestId: string): Promise<{ receiver: any; port: number }> {
+		const { createTelemetryReceiver } = await import("./gemini-cli-telemetry")
 
-		await this.telemetryReceiver.stop()
-		this.telemetryReceiver = null
+		// Create and start receiver (automatically finds available port)
+		const receiver = await createTelemetryReceiver()
+		const port = receiver.getPort()
+
+		return { receiver, port }
+	}
+
+	/**
+	 * Filter out OpenTelemetry SDK messages and other unwanted output from CLI response
+	 */
+	private filterCliOutput(output: string): string {
+		const lines = output.split("\n")
+		const filteredLines = lines.filter((line) => {
+			const trimmedLine = line.trim()
+
+			// Filter out OpenTelemetry SDK messages
+			if (trimmedLine.includes("Loaded cached credentials.")) return false
+			if (trimmedLine.includes("OpenTelemetry")) return false
+			if (trimmedLine.includes("OTEL_")) return false
+			if (trimmedLine.includes("telemetry")) return false
+			if (trimmedLine.includes("grpc")) return false
+			if (trimmedLine.includes("protobuf")) return false
+
+			// Filter out debug/trace messages
+			if (trimmedLine.startsWith("[DEBUG]")) return false
+			if (trimmedLine.startsWith("[TRACE]")) return false
+			if (trimmedLine.startsWith("[INFO]")) return false
+
+			// Keep non-empty lines that don't match filter criteria
+			return trimmedLine.length > 0
+		})
+
+		return filteredLines.join("\n")
 	}
 
 	/**

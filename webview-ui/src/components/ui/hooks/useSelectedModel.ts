@@ -158,7 +158,7 @@ function getSelectedModel({
 			return { id, info }
 		}
 		case "gemini-cli": {
-			const id = apiConfiguration.apiModelId ?? geminiDefaultModelId
+			const id = apiConfiguration.geminiCliModelId ?? "gemini-2.5-pro"
 			const info = geminiModels[id as keyof typeof geminiModels]
 			return { id, info }
 		}

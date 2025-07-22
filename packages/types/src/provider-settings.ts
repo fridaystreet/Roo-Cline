@@ -172,7 +172,6 @@ const geminiCliSchema = apiModelIdProviderModelSchema.extend({
 	geminiCliModelId: z.string().optional(),
 	// Advanced CLI options
 	geminiCliCheckpointing: z.boolean().optional(),
-	geminiCliTelemetry: z.boolean().optional(),
 	geminiCliExperimentalAcp: z.boolean().optional(),
 	geminiCliIdeMode: z.boolean().optional(),
 	geminiCliAllFiles: z.boolean().optional(),

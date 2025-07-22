@@ -268,6 +268,8 @@ export const EVALS_SETTINGS: RooCodeSettings = {
 	mode: "code",
 
 	customModes: [],
+
+	// Gemini CLI Provider Settings
 }
 
 export const EVALS_TIMEOUT = 5 * 60 * 1_000
