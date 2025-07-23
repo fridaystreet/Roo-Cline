@@ -179,7 +179,21 @@ const SettingsView = forwardRef<SettingsViewRef, SettingsViewProps>(({ onDone, t
 		followupAutoApproveTimeoutMs,
 	} = cachedState
 
-	const apiConfiguration = useMemo(() => cachedState.apiConfiguration ?? {}, [cachedState.apiConfiguration])
+	const apiConfiguration = useMemo(() => {
+		const config = cachedState.apiConfiguration ?? {}
+		// Initialize default-ON values to ensure proper change detection
+		return {
+			...config,
+			// Gemini CLI defaults
+			geminiCliCheckpointing: config.geminiCliCheckpointing ?? true,
+			geminiCliIdeMode: config.geminiCliIdeMode ?? true,
+			// OpenRouter defaults
+			openRouterUseMiddleOutTransform: config.openRouterUseMiddleOutTransform ?? true,
+			// OpenAI defaults
+			openAiStreamingEnabled: config.openAiStreamingEnabled ?? true,
+			includeMaxTokens: config.includeMaxTokens ?? true,
+		}
+	}, [cachedState.apiConfiguration])
 
 	useEffect(() => {
 		// Update only when currentApiConfigName is changed.

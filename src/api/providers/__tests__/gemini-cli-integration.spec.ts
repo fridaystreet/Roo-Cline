@@ -79,7 +79,7 @@ describe("GeminiCli-Real-Integration-Test-With-Telemetry", () => {
 	})
 
 	describe("createMessage", () => {
-		let usage: TokenUsage | null = null
+		let usage: any = null
 
 		it("should handle streaming messages", async () => {
 			const systemPrompt = "You are a helpful assistant."

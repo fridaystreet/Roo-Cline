@@ -109,7 +109,7 @@ export const GeminiCli = ({
 					<label className="flex items-start space-x-2">
 						<input
 							type="checkbox"
-							checked={apiConfiguration?.geminiCliCheckpointing !== false}
+							checked={apiConfiguration?.geminiCliCheckpointing ?? true}
 							onChange={(e) => setApiConfigurationField("geminiCliCheckpointing", e.target.checked)}
 							className="rounded mt-0.5"
 						/>
@@ -142,7 +142,7 @@ export const GeminiCli = ({
 					<label className="flex items-start space-x-2">
 						<input
 							type="checkbox"
-							checked={apiConfiguration?.geminiCliIdeMode !== false}
+							checked={apiConfiguration?.geminiCliIdeMode ?? true}
 							onChange={(e) => setApiConfigurationField("geminiCliIdeMode", e.target.checked)}
 							className="rounded mt-0.5"
 						/>

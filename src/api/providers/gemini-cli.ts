@@ -24,10 +24,39 @@ export interface TokenUsage {
 export class GeminiCliHandler extends BaseProvider implements SingleCompletionHandler {
 	protected options: ApiHandlerOptions
 	private lastTelemetryEvent: TelemetryEvent | null = null
+	private currentAbortController: AbortController | null = null
+	private currentChildProcess: any | null = null
 
 	constructor(options: ApiHandlerOptions) {
 		super()
 		this.options = options
+		this.currentAbortController = null
+		this.currentChildProcess = null
+	}
+
+	/**
+	 * Clean up any active requests and resources
+	 */
+	private ensureCleanState(): void {
+		if (this.currentAbortController) {
+			this.currentAbortController.abort()
+			this.currentAbortController = null
+		}
+		if (this.currentChildProcess) {
+			try {
+				this.currentChildProcess.kill("SIGTERM")
+			} catch (error) {
+				// Process might already be dead, ignore error
+			}
+			this.currentChildProcess = null
+		}
+	}
+
+	/**
+	 * Dispose method for cleanup when provider is destroyed
+	 */
+	dispose(): void {
+		this.ensureCleanState()
 	}
 
 	/**
@@ -92,15 +121,13 @@ export class GeminiCliHandler extends BaseProvider implements SingleCompletionHa
 			text: response,
 		}
 		let usage = this.getLastTokenUsage()
-		while (!usage) {
-			usage = this.getLastTokenUsage()
-			if (usage) break
-		}
 		if (this.options.geminiCliDebug)
 			process.stdout.write("🔗 Gemini CLI Token Usage reported: " + JSON.stringify(usage))
-		yield {
-			type: "usage",
-			...usage,
+		if (usage) {
+			yield {
+				type: "usage",
+				...usage,
+			}
 		}
 	}
 
@@ -152,6 +179,13 @@ export class GeminiCliHandler extends BaseProvider implements SingleCompletionHa
 	}
 
 	async completePrompt(prompt: string): Promise<string> {
+		// Ensure clean state before starting new request
+		this.ensureCleanState()
+
+		// Create new abort controller for this request
+		this.currentAbortController = new AbortController()
+		const signal = this.currentAbortController.signal
+
 		await this.ensureSettingsFile()
 
 		// Generate unique request ID for telemetry correlation
@@ -231,13 +265,37 @@ export class GeminiCliHandler extends BaseProvider implements SingleCompletionHa
 		if (this.options.geminiCliDebug) process.stdout.write(`📝 CLI Prompt length: ${prompt.length} characters\n`)
 
 		return new Promise((resolve, reject) => {
+			// Check if already cancelled before starting
+			if (signal.aborted) {
+				reject(new Error("Request was cancelled before CLI execution"))
+				return
+			}
+
 			// Use process.nextTick to defer CLI spawn to next event loop tick
 			// This ensures telemetry receiver is fully registered before CLI starts sending data
 			process.nextTick(() => {
+				// Check cancellation again after nextTick
+				if (signal.aborted) {
+					reject(new Error("Request was cancelled before CLI execution"))
+					return
+				}
+
 				const child = spawn("npx", ["https://github.com/google-gemini/gemini-cli", ...args], {
 					env,
 					stdio: ["pipe", "pipe", "pipe"],
 				})
+
+				// Store child process for cancellation
+				this.currentChildProcess = child
+
+				// Set up cancellation listener
+				const abortListener = () => {
+					if (child && !child.killed) {
+						child.kill("SIGTERM")
+						reject(new Error("Request was cancelled by user"))
+					}
+				}
+				signal.addEventListener("abort", abortListener)
 
 				// Send the full prompt via stdin to avoid OS argument length limits
 				if (child.stdin) {
@@ -257,6 +315,9 @@ export class GeminiCliHandler extends BaseProvider implements SingleCompletionHa
 				})
 
 				child.on("close", async (exitCode) => {
+					// Clean up abort listener and resources
+					signal.removeEventListener("abort", abortListener)
+					this.currentChildProcess = null
 					if (exitCode !== 0) {
 						const errorMessage = errorOutput.trim()
 
@@ -342,10 +403,17 @@ export class GeminiCliHandler extends BaseProvider implements SingleCompletionHa
 
 					// Filter out OpenTelemetry SDK messages from the output
 					const filteredOutput = this.filterCliOutput(output)
+
+					// Clean up abort controller
+					this.currentAbortController = null
+
 					resolve(filteredOutput.trim())
 				})
 
 				child.on("error", (error) => {
+					// Clean up abort listener and resources on error
+					signal.removeEventListener("abort", abortListener)
+					this.currentChildProcess = null
 					reject(new Error(`Failed to spawn Gemini CLI: ${error.message}`))
 				})
 			})
@@ -357,15 +425,24 @@ export class GeminiCliHandler extends BaseProvider implements SingleCompletionHa
 	 */
 	private filterCliOutput(output: string): string {
 		const lines = output.split("\n")
-		const filteredLines = lines.filter((line: string) => {
-			// Filter out OpenTelemetry SDK messages
-			const lowerLine = line.toLowerCase()
-			return !(
-				lowerLine.includes("loaded cached credentials.") ||
-				lowerLine.includes("opentelemetry sdk started successfully.") ||
-				lowerLine.includes("accessing resource attributes before async attributes settled")
-			)
-		})
+		const filteredLines = lines
+			.filter((line: string) => {
+				// Filter out OpenTelemetry SDK messages
+				const lowerLine = line.toLowerCase()
+				return !(
+					lowerLine.includes("loaded cached credentials.") ||
+					lowerLine.includes("opentelemetry sdk started successfully.") ||
+					lowerLine.includes("opentelemetry sdk shut down successfully.") ||
+					lowerLine.includes("accessing resource attributes before async attributes settled")
+				)
+			})
+			.map((line: string) => {
+				if (line.startsWith("Assistant: ")) {
+					return line.replace("Assistant: ", "")
+				}
+				return line
+			})
+
 		return filteredLines.join("\n")
 	}
 }

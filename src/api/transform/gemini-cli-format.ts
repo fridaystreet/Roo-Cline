@@ -61,7 +61,9 @@ export function convertAnthropicMessagesToPrompt(
 
 	// Add system instruction if provided
 	if (systemInstruction) {
-		parts.push(`System: ${systemInstruction}`)
+		parts.push(
+			`System: **IMPORTANT** Ensure you put carriage returns before commands or markdown. DO NOT do eg "First, I'll update the todo list.\`\`\`xml...."\n\n${systemInstruction}`,
+		)
 	}
 
 	// Convert each message
