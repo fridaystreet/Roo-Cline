@@ -222,9 +222,9 @@ export class GeminiCliHandler extends BaseProvider implements SingleCompletionHa
 			args.push("--all-files", "true")
 		}
 
-		if (this.options.geminiCliDebug === true) {
-			args.push("--debug", "true")
-		}
+		// if (this.options.geminiCliDebug === true) {
+		// 	args.push("--debug", "true")
+		// }
 
 		// Enable checkpointing by default (can be disabled in UI)
 		if (this.options.geminiCliCheckpointing === true) {

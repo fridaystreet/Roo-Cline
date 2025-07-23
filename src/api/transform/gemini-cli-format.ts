@@ -15,8 +15,13 @@ export function convertAnthropicContentToText(content: string | Anthropic.Conten
 				case "text":
 					return block.text
 				case "image":
-					// CLI doesn't support images directly, provide description
-					return "[Image content - not supported in CLI mode]"
+					// Format images the same way the CLI does: <mimeType>
+					if (block.source?.type === "base64") {
+						const mimeType = block.source.media_type || "image/png"
+						// Match CLI's format from geminiRequest.ts: `<${part.inlineData.mimeType}>`
+						return `<${mimeType}>`
+					}
+					return "[Image content - format not supported]"
 				case "tool_use":
 					// Convert tool use to text description
 					return `[Tool: ${block.name} with input: ${JSON.stringify(block.input)}]`

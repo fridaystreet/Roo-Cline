@@ -2,20 +2,21 @@
 
 import { describe, it, expect } from "vitest"
 import { Anthropic } from "@anthropic-ai/sdk"
-import { GeminiCliHandler, TokenUsage } from "../gemini-cli"
-const debug = false
+import { GeminiCliHandler } from "../gemini-cli"
+const debug = true
 const log = (msg: string) => {
 	if (debug) process.stdout.write(`${msg}\n`)
 }
 describe("GeminiCli-Real-Integration-Test-With-Telemetry", () => {
-	const shouldSkipIntegration = false // process.env.CI === "true" || !process.env.GEMINI_CLI_TEST
+	const shouldSkipIntegration = false //process.env.CI === "true" || !process.env.GEMINI_CLI_TEST
 	if (shouldSkipIntegration) {
 		process.stdout.write("⏭️ Skipping context test - set GEMINI_CLI_TEST=true to enable\n")
 		return
 	}
 	const handler = new GeminiCliHandler({
 		apiModelId: "gemini-2.5-pro",
-		geminiCliProjectId: "459520514684",
+		geminiCliProjectId: process.env.GOOGLE_CLOUD_PROJECT,
+		geminiCliDebug: debug,
 	})
 
 	describe("run-real-prompt-with-telemetry", () => {
@@ -198,7 +199,7 @@ describe("GeminiCli-Real-Integration-Test-With-Telemetry", () => {
 
 	describe("Error Handling", () => {
 		it("should provide detailed error messages for CLI failures", async () => {
-			const handler = new GeminiCliHandler({ apiModelId: "gemini-2.5-pro" })
+			const handler = new GeminiCliHandler({ apiModelId: "gemini-2.5-pro", geminiCliDebug: debug })
 
 			try {
 				await handler.completePrompt("Test prompt")
@@ -218,6 +219,7 @@ describe("GeminiCli-Real-Integration-Test-With-Telemetry", () => {
 			const handler = new GeminiCliHandler({
 				apiModelId: "gemini-2.5-pro",
 				geminiCliProjectId: "test-project-456",
+				geminiCliDebug: debug,
 			})
 
 			// Verify handler accepts project ID configuration
