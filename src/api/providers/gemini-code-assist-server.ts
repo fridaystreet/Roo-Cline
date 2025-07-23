@@ -1,13 +1,11 @@
 /**
- * Standalone CodeAssistServer implementation for Gemini Code Assist provider
- * This replicates the essential functionality from @google/gemini-cli-core
- * without the telemetry dependencies that cause OpenTelemetry import issues
+ * @license
+ * Copyright 2025 Google LLC
+ * SPDX-License-Identifier: Apache-2.0
  */
 
 import { OAuth2Client } from "google-auth-library"
-import * as readline from "readline"
-import { Readable } from "node:stream"
-import type {
+import {
 	CountTokensParameters,
 	CountTokensResponse,
 	EmbedContentParameters,
@@ -15,13 +13,10 @@ import type {
 	GenerateContentParameters,
 	GenerateContentResponse,
 } from "@google/genai"
+import * as readline from "readline"
+import { Readable } from "node:stream"
 
-// Types from gemini-cli (replicated to avoid imports)
-// eslint-disable-next-line @typescript-eslint/no-empty-object-type
-export interface CodeAssistGlobalUserSettingResponse {
-	// Add fields as needed
-}
-
+// Types from CLI core
 export interface LoadCodeAssistRequest {
 	cloudaicompanionProject: string
 	metadata: {
@@ -38,29 +33,32 @@ export interface LoadCodeAssistResponse {
 	}
 }
 
-// eslint-disable-next-line @typescript-eslint/no-empty-object-type
-export interface LongrunningOperationResponse {
-	// Add fields as needed
-}
-
-// eslint-disable-next-line @typescript-eslint/no-empty-object-type
 export interface OnboardUserRequest {
 	// Add fields as needed
+	[key: string]: unknown
 }
 
-// eslint-disable-next-line @typescript-eslint/no-empty-object-type
+export interface LongrunningOperationResponse {
+	// Add fields as needed
+	[key: string]: unknown
+}
+
+export interface CodeAssistGlobalUserSettingResponse {
+	// Add fields as needed
+	[key: string]: unknown
+}
+
 export interface SetCodeAssistGlobalUserSettingRequest {
 	// Add fields as needed
+	[key: string]: unknown
 }
 
-export type UserTierId = "FREE" | "PREMIUM" | string
+export type UserTierId = "FREE" | "PREMIUM" | "ENTERPRISE"
 
-// Internal types
 interface ErrorData {
 	error?: {
 		message?: string
 	}
-	message?: string
 }
 
 interface GaxiosResponse {
@@ -73,65 +71,146 @@ interface StreamError extends Error {
 	response?: GaxiosResponse
 }
 
+/** HTTP options to be used in each of the requests. */
 export interface HttpOptions {
+	/** Additional HTTP headers to be sent with the request. */
 	headers?: Record<string, string>
 }
 
-// Code Assist API constants
 export const CODE_ASSIST_ENDPOINT = "https://cloudcode-pa.googleapis.com"
 export const CODE_ASSIST_API_VERSION = "v1internal"
 
-// Converter functions (exact CLI implementation)
+// Exact CLI converter functions from converter.ts
 function toGenerateContentRequest(req: GenerateContentParameters, project?: string, sessionId?: string): any {
-	// Match exact CLI structure from converter.ts
 	return {
 		model: req.model,
 		project,
+		request: toVertexGenerateContentRequest(req, sessionId),
+	}
+}
+
+function fromGenerateContentResponse(res: any): GenerateContentResponse {
+	const inres = res.response
+	const out = new GenerateContentResponse()
+	out.candidates = inres.candidates
+	out.automaticFunctionCallingHistory = inres.automaticFunctionCallingHistory
+	out.promptFeedback = inres.promptFeedback
+	out.usageMetadata = inres.usageMetadata
+	return out
+}
+
+function toVertexGenerateContentRequest(req: GenerateContentParameters, sessionId?: string): any {
+	return {
+		contents: toContents(req.contents),
+		systemInstruction: maybeToContent(req.config?.systemInstruction),
+		cachedContent: req.config?.cachedContent,
+		tools: req.config?.tools,
+		toolConfig: req.config?.toolConfig,
+		labels: req.config?.labels,
+		safetySettings: req.config?.safetySettings,
+		generationConfig: toVertexGenerationConfig(req.config),
+		session_id: sessionId,
+	}
+}
+
+function toContents(contents: any): any[] {
+	if (Array.isArray(contents)) {
+		// it's a Content[] or a PartsUnion[]
+		return contents.map(toContent)
+	}
+	// it's a Content or a PartsUnion
+	return [toContent(contents)]
+}
+
+function maybeToContent(content?: any): any | undefined {
+	if (!content) {
+		return undefined
+	}
+	return toContent(content)
+}
+
+function toContent(content: any): any {
+	if (Array.isArray(content)) {
+		// it's a PartsUnion[]
+		return {
+			role: "user",
+			parts: toParts(content),
+		}
+	}
+	if (typeof content === "string") {
+		// it's a string
+		return {
+			role: "user",
+			parts: [{ text: content }],
+		}
+	}
+	if (content && typeof content === "object" && "parts" in content) {
+		// it's a Content
+		return content
+	}
+	// it's a Part
+	return {
+		role: "user",
+		parts: [content],
+	}
+}
+
+function toParts(parts: any[]): any[] {
+	return parts.map(toPart)
+}
+
+function toPart(part: any): any {
+	if (typeof part === "string") {
+		// it's a string
+		return { text: part }
+	}
+	return part
+}
+
+function toVertexGenerationConfig(config?: any): any | undefined {
+	if (!config) {
+		return undefined
+	}
+	return {
+		temperature: config.temperature,
+		topP: config.topP,
+		topK: config.topK,
+		candidateCount: config.candidateCount,
+		maxOutputTokens: config.maxOutputTokens,
+		stopSequences: config.stopSequences,
+		responseLogprobs: config.responseLogprobs,
+		logprobs: config.logprobs,
+		presencePenalty: config.presencePenalty,
+		frequencyPenalty: config.frequencyPenalty,
+		seed: config.seed,
+		responseMimeType: config.responseMimeType,
+		responseSchema: config.responseSchema,
+		routingConfig: config.routingConfig,
+		modelSelectionConfig: config.modelSelectionConfig,
+		responseModalities: config.responseModalities,
+		mediaResolution: config.mediaResolution,
+		speechConfig: config.speechConfig,
+		audioTimestamp: config.audioTimestamp,
+		thinkingConfig: config.thinkingConfig,
+	}
+}
+
+function toCountTokenRequest(req: CountTokensParameters): any {
+	return {
 		request: {
-			contents: req.contents,
-			systemInstruction: req.config?.systemInstruction,
-			cachedContent: req.config?.cachedContent,
-			tools: req.config?.tools,
-			toolConfig: req.config?.toolConfig,
-			labels: req.config?.labels,
-			safetySettings: req.config?.safetySettings,
-			generationConfig: {
-				temperature: req.config?.temperature,
-				topP: req.config?.topP,
-				topK: req.config?.topK,
-				candidateCount: req.config?.candidateCount,
-				maxOutputTokens: req.config?.maxOutputTokens,
-				stopSequences: req.config?.stopSequences,
-				responseLogprobs: req.config?.responseLogprobs,
-				logprobs: req.config?.logprobs,
-				presencePenalty: req.config?.presencePenalty,
-				frequencyPenalty: req.config?.frequencyPenalty,
-				seed: req.config?.seed,
-				responseMimeType: req.config?.responseMimeType,
-				responseSchema: req.config?.responseSchema,
-			},
-			session_id: sessionId,
+			model: "models/" + req.model,
+			contents: toContents(req.contents),
 		},
 	}
 }
 
-function fromGenerateContentResponse(resp: any): GenerateContentResponse {
-	return resp as GenerateContentResponse
+function fromCountTokenResponse(res: any): CountTokensResponse {
+	return {
+		totalTokens: res.totalTokens,
+	}
 }
 
-function toCountTokenRequest(req: CountTokensParameters): any {
-	return req
-}
-
-function fromCountTokenResponse(resp: any): CountTokensResponse {
-	return resp as CountTokensResponse
-}
-
-/**
- * Standalone CodeAssistServer class
- * Replicates the essential functionality from @google/gemini-cli-core without telemetry dependencies
- */
-export class StandaloneCodeAssistServer {
+export class CodeAssistServer {
 	private userTier: UserTierId | undefined = undefined
 
 	constructor(
@@ -187,17 +266,10 @@ export class StandaloneCodeAssistServer {
 	}
 
 	async embedContent(_req: EmbedContentParameters): Promise<EmbedContentResponse> {
-		throw new Error("embedContent not implemented")
+		throw Error()
 	}
 
-	async getTier(): Promise<UserTierId | undefined> {
-		if (this.userTier === undefined) {
-			await this.detectUserTier()
-		}
-		return this.userTier
-	}
-
-	private async requestPost<T>(method: string, req: object, signal?: AbortSignal): Promise<T> {
+	async requestPost<T>(method: string, req: object, signal?: AbortSignal): Promise<T> {
 		const res = await this.client.request({
 			url: this.getMethodUrl(method),
 			method: "POST",
@@ -205,31 +277,28 @@ export class StandaloneCodeAssistServer {
 				"Content-Type": "application/json",
 				...this.httpOptions.headers,
 			},
+			responseType: "json",
 			body: JSON.stringify(req),
 			signal,
 		})
-
 		return res.data as T
 	}
 
-	private async requestGet<T>(method: string, signal?: AbortSignal): Promise<T> {
+	async requestGet<T>(method: string, signal?: AbortSignal): Promise<T> {
 		const res = await this.client.request({
 			url: this.getMethodUrl(method),
 			method: "GET",
 			headers: {
+				"Content-Type": "application/json",
 				...this.httpOptions.headers,
 			},
+			responseType: "json",
 			signal,
 		})
-
 		return res.data as T
 	}
 
-	private async requestStreamingPost<T>(
-		method: string,
-		req: object,
-		signal?: AbortSignal,
-	): Promise<AsyncGenerator<T>> {
+	async requestStreamingPost<T>(method: string, req: object, signal?: AbortSignal): Promise<AsyncGenerator<T>> {
 		const res = await this.client.request({
 			url: this.getMethodUrl(method),
 			method: "POST",
@@ -257,10 +326,12 @@ export class StandaloneCodeAssistServer {
 				nodeStream = res.data as NodeJS.ReadableStream
 			} else {
 				// If res.data is not a stream, it might be an error response
+				// Try to extract error information from the response
 				let errorMessage =
 					"Response data is not a readable stream. This may indicate a server error or quota issue."
 
 				if (res.data && typeof res.data === "object") {
+					// Check if this is an error response with error details
 					const errorData = res.data as ErrorData
 					if (errorData.error?.message) {
 						errorMessage = errorData.error.message
@@ -269,7 +340,9 @@ export class StandaloneCodeAssistServer {
 					}
 				}
 
+				// Create an error that looks like a quota error if it contains quota information
 				const error: StreamError = new Error(errorMessage)
+				// Add status and response properties so it can be properly handled by retry logic
 				error.status = res.status
 				error.response = res
 				throw error
@@ -298,6 +371,13 @@ export class StandaloneCodeAssistServer {
 		})()
 	}
 
+	async getTier(): Promise<UserTierId | undefined> {
+		if (this.userTier === undefined) {
+			await this.detectUserTier()
+		}
+		return this.userTier
+	}
+
 	private async detectUserTier(): Promise<void> {
 		try {
 			// Reset user tier when detection runs
@@ -320,11 +400,12 @@ export class StandaloneCodeAssistServer {
 			}
 		} catch (error) {
 			// Silently fail - this is not critical functionality
+			// We'll default to FREE tier behavior if tier detection fails
 			console.debug("User tier detection failed:", error)
 		}
 	}
 
-	private getMethodUrl(method: string): string {
+	getMethodUrl(method: string): string {
 		const endpoint = process.env.CODE_ASSIST_ENDPOINT ?? CODE_ASSIST_ENDPOINT
 		return `${endpoint}/${CODE_ASSIST_API_VERSION}:${method}`
 	}

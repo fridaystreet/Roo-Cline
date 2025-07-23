@@ -2,7 +2,7 @@ import type { Anthropic } from "@anthropic-ai/sdk"
 // Use our standalone implementations to completely avoid OpenTelemetry dependencies
 import { AuthType, MinimalConfig, generateSessionId } from "./gemini-code-assist-config.js"
 import { getOauthClient } from "./gemini-code-assist-oauth.js"
-import { StandaloneCodeAssistServer } from "./gemini-code-assist-server.js"
+import { CodeAssistServer } from "./gemini-code-assist-server.js"
 import type {
 	GenerateContentResponseUsageMetadata,
 	GenerateContentParameters,
@@ -22,7 +22,7 @@ import { BaseProvider } from "./base-provider"
 
 export class GeminiCodeAssistHandler extends BaseProvider implements SingleCompletionHandler {
 	protected options: ApiHandlerOptions
-	private server: any | null = null
+	private server: CodeAssistServer | null = null
 
 	constructor(options: ApiHandlerOptions) {
 		super()
@@ -48,7 +48,7 @@ export class GeminiCodeAssistHandler extends BaseProvider implements SingleCompl
 			process.env.GOOGLE_CLOUD_PROJECT = this.options.geminiCliProjectId
 
 			const oauthClient = await getOauthClient(AuthType.LOGIN_WITH_GOOGLE, config)
-			this.server = new StandaloneCodeAssistServer(
+			this.server = new CodeAssistServer(
 				oauthClient,
 				this.options.geminiCliProjectId,
 				undefined,
@@ -159,14 +159,12 @@ export class GeminiCodeAssistHandler extends BaseProvider implements SingleCompl
 			const server = await this.getCodeAssistServer()
 			const { id: model } = this.getModel()
 
+			// Use proper CLI converter functions like in createMessage
 			const result = await server.generateContent({
 				model,
-				project: this.options.geminiCliProjectId,
-				request: {
-					contents: [{ role: "user", parts: [{ text: prompt }] }],
-					generationConfig: {
-						temperature: this.options.modelTemperature ?? 0,
-					},
+				contents: convertAnthropicContentToGemini([{ type: "text", text: prompt }]), // Convert string to proper format
+				config: {
+					temperature: this.options.modelTemperature ?? 0,
 				},
 			})
 
