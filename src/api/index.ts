@@ -18,6 +18,7 @@ import {
 	GeminiCliHandler,
 	OpenAiNativeHandler,
 	DeepSeekHandler,
+	MoonshotHandler,
 	MistralHandler,
 	VsCodeLmHandler,
 	UnboundHandler,
@@ -92,15 +93,32 @@ export function buildApiHandler(configuration: ProviderSettings): ApiHandler {
 			return options.apiModelId?.startsWith("claude")
 				? new AnthropicVertexHandler(options)
 				: new VertexHandler(options)
+		case "openai":
+			return new OpenAiHandler(options)
+		case "ollama":
+			return new OllamaHandler(options)
+		case "lmstudio":
+			return new LmStudioHandler(options)
+		case "gemini":
+			return new GeminiHandler(options)
+		case "openai-native":
+			return new OpenAiNativeHandler(options)
+		case "deepseek":
+			return new DeepSeekHandler(options)
+		case "moonshot":
+			return new MoonshotHandler(options)
+		case "vscode-lm":
+			return new VsCodeLmHandler(options)
+		case "mistral":
+			return new MistralHandler(options)
+		case "unbound":
+			return new UnboundHandler(options)
+		case "requesty":
+			return new RequestyHandler(options)
 		case "human-relay":
 			return new HumanRelayHandler()
 		default:
-			if (apiProvider) {
-				const Handler = providerMap[apiProvider]
-				if (Handler) {
-					return new Handler(options)
-				}
-			}
+			apiProvider satisfies "gemini-cli" | undefined
 			return new AnthropicHandler(options)
 	}
 }
