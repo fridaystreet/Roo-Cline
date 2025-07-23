@@ -27,6 +27,7 @@ import {
 	FakeAIHandler,
 	XAIHandler,
 	GroqHandler,
+	HuggingFaceHandler,
 	ChutesHandler,
 	LiteLLMHandler,
 	ClaudeCodeHandler,
@@ -119,6 +120,18 @@ export function buildApiHandler(configuration: ProviderSettings): ApiHandler {
 			return new RequestyHandler(options)
 		case "human-relay":
 			return new HumanRelayHandler()
+		case "fake-ai":
+			return new FakeAIHandler(options)
+		case "xai":
+			return new XAIHandler(options)
+		case "groq":
+			return new GroqHandler(options)
+		case "huggingface":
+			return new HuggingFaceHandler(options)
+		case "chutes":
+			return new ChutesHandler(options)
+		case "litellm":
+			return new LiteLLMHandler(options)
 		default:
 			return new AnthropicHandler(options)
 	}
