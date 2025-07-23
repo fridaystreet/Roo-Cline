@@ -101,6 +101,8 @@ export function buildApiHandler(configuration: ProviderSettings): ApiHandler {
 			return new LmStudioHandler(options)
 		case "gemini":
 			return new GeminiHandler(options)
+		case "gemini-cli":
+			return new GeminiCliHandler(options)
 		case "openai-native":
 			return new OpenAiNativeHandler(options)
 		case "deepseek":
@@ -118,7 +120,6 @@ export function buildApiHandler(configuration: ProviderSettings): ApiHandler {
 		case "human-relay":
 			return new HumanRelayHandler()
 		default:
-			apiProvider satisfies "gemini-cli" | undefined
 			return new AnthropicHandler(options)
 	}
 }
