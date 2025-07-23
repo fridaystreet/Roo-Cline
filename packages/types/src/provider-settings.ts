@@ -166,15 +166,16 @@ const geminiSchema = apiModelIdProviderModelSchema.extend({
 	googleGeminiBaseUrl: z.string().optional(),
 })
 
-const geminiCliSchema = apiModelIdProviderModelSchema.extend({
+const geminiCliSchema = baseProviderSettingsSchema.extend({
+	geminiCliModelId: z.string().optional(),
 	geminiCliOAuthPath: z.string().optional(),
 	geminiCliProjectId: z.string().optional(),
-	geminiCliModelId: z.string().optional(),
 	// Advanced CLI options
 	geminiCliCheckpointing: z.boolean().optional(),
 	geminiCliExperimentalAcp: z.boolean().optional(),
 	geminiCliIdeMode: z.boolean().optional(),
 	geminiCliAllFiles: z.boolean().optional(),
+	geminiCliDebug: z.boolean().optional(),
 })
 
 const openAiNativeSchema = apiModelIdProviderModelSchema.extend({
@@ -299,6 +300,7 @@ export const MODEL_ID_KEYS: Partial<keyof ProviderSettings>[] = [
 	"unboundModelId",
 	"requestyModelId",
 	"litellmModelId",
+	"geminiCliModelId",
 ]
 
 export const getModelId = (settings: ProviderSettings): string | undefined => {

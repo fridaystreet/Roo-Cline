@@ -72,11 +72,6 @@ function validateModelsAndKeysProvided(apiConfiguration: ProviderSettings): stri
 				return i18next.t("settings:validation.apiKey")
 			}
 			break
-		case "gemini-cli":
-			if (!apiConfiguration.geminiCliProjectId) {
-				return "Google Cloud Project ID is required for Gemini CLI"
-			}
-			break
 		case "openai-native":
 			if (!apiConfiguration.openAiNativeApiKey) {
 				return i18next.t("settings:validation.apiKey")
@@ -162,6 +157,8 @@ function getModelIdForProvider(apiConfiguration: ProviderSettings, provider: str
 			return apiConfiguration.requestyModelId
 		case "litellm":
 			return apiConfiguration.litellmModelId
+		case "gemini-cli":
+			return apiConfiguration.geminiCliModelId
 		case "openai":
 			return apiConfiguration.openAiModelId
 		case "ollama":

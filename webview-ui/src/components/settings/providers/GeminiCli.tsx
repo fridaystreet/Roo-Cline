@@ -153,6 +153,21 @@ export const GeminiCli = ({
 							</div>
 						</div>
 					</label>
+					<label className="flex items-start space-x-2">
+						<input
+							type="checkbox"
+							checked={!!apiConfiguration?.geminiCliDebug}
+							onChange={(e) => setApiConfigurationField("geminiCliDebug", e.target.checked)}
+							className="rounded mt-0.5"
+						/>
+						<div>
+							<div className="text-sm font-medium">Debug (--debug)</div>
+							<div className="text-xs text-vscode-descriptionForeground">
+								Enable debug logging for the Gemini CLI. This can be useful for debugging issues with
+								the Gemini CLI. Help ~ Toggle Developer Tools in VSCode to view debug logs.
+							</div>
+						</div>
+					</label>
 					<div className="space-y-1">
 						<div className="flex items-center space-x-2">
 							<span className="text-sm font-medium">MCP Server Integration</span>

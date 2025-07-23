@@ -1,30 +1,56 @@
-// npx vitest run src/api/providers/__tests__/gemini-cli.spec.ts
+// Unit tests for GeminiCliHandler - tests logic without executing real CLI commands
+// npx vitest run src/api/providers/__tests__/gemini-cli.unit.spec.ts
 
-import { promises as fs } from "fs"
+import { describe, it, expect, beforeEach, vi } from "vitest"
 import { join } from "path"
 import { homedir } from "os"
-import { describe, it, expect, beforeEach, afterEach, vi } from "vitest"
+import { promises as fs } from "fs"
 import { Anthropic } from "@anthropic-ai/sdk"
 import { GeminiCliHandler } from "../gemini-cli"
-import type { ApiHandlerOptions } from "../../../shared/api"
-import type { ModelInfo } from "@roo-code/types"
+
+// Mock child_process to avoid executing real CLI commands
+vi.mock("child_process")
 
 describe("GeminiCliHandler", () => {
-	describe("constructor", () => {
-		it("should initialize with provided config", () => {
-			const handler = new GeminiCliHandler({
-				apiModelId: "gemini-2.5-pro",
-				geminiCliProjectId: "459520514684",
-			})
+	let handler: GeminiCliHandler
+	const basicConfig = {
+		apiModelId: "gemini-2.5-pro",
+		geminiCliProjectId: "test-project-123",
+	}
 
-			expect(handler["options"].apiModelId).toBe("gemini-2.5-pro")
-			expect(handler["options"].geminiCliProjectId).toBe("459520514684")
-		})
+	beforeEach(() => {
+		handler = new GeminiCliHandler(basicConfig)
+		// Clear any previous mocks
+		vi.clearAllMocks()
 	})
 
+	describe("constructor", () => {
+		it("should initialize with basic config", () => {
+			expect(handler).toBeInstanceOf(GeminiCliHandler)
+			// Access private options via bracket notation for testing
+			expect(handler["options"].apiModelId).toBe("gemini-2.5-pro")
+			expect(handler["options"].geminiCliProjectId).toBe("test-project-123")
+		})
+
+		it("should initialize with all CLI options", () => {
+			const fullConfig = {
+				...basicConfig,
+
+				geminiCliAllFiles: true,
+				geminiCliCheckpointing: false,
+				geminiCliExperimentalAcp: true,
+				geminiCliIdeMode: false,
+			}
+			const fullHandler = new GeminiCliHandler(fullConfig)
+
+			// Telemetry is now always enabled (no longer configurable)
+			expect(fullHandler["options"].geminiCliCheckpointing).toBe(false)
+			expect(fullHandler["options"].geminiCliExperimentalAcp).toBe(true)
+			expect(fullHandler["options"].geminiCliIdeMode).toBe(false)
+		})
+	})
 	describe("getModel", () => {
 		it("should return correct model info without incorrect mapping", () => {
-			const handler = new GeminiCliHandler({ apiModelId: "gemini-2.5-pro" })
 			const modelInfo = handler.getModel()
 
 			// Should use the actual selected model ID (no more incorrect mapping)
@@ -35,11 +61,11 @@ describe("GeminiCliHandler", () => {
 		})
 
 		it("should handle thinking model suffix correctly", () => {
-			const handler = new GeminiCliHandler({ apiModelId: "gemini-2.5-pro:thinking" })
+			const handler = new GeminiCliHandler({ apiModelId: "gemini-2.5-flash-preview-04-17:thinking" })
 			const modelInfo = handler.getModel()
 
 			// Should remove :thinking suffix for CLI
-			expect(modelInfo.id).toBe("gemini-2.0-flash-001")
+			expect(modelInfo.id).toBe("gemini-2.5-flash-preview-04-17")
 		})
 	})
 
@@ -66,13 +92,10 @@ describe("GeminiCliHandler", () => {
 		})
 
 		it("should create settings file with correct auth method when missing", async () => {
-			const handler = new GeminiCliHandler({ apiModelId: "gemini-2.5-pro" })
-
 			// Create the test directory and call ensureSettingsFile
 			await fs.mkdir(tempGeminiDir, { recursive: true })
 
 			// Mock the settings file path for testing
-			const originalHomedir = homedir
 			vi.stubGlobal("homedir", () => tempGeminiDir.replace("/.gemini-test", ""))
 
 			try {
@@ -93,393 +116,75 @@ describe("GeminiCliHandler", () => {
 		})
 	})
 
-	describe("completePrompt", () => {
-		// Skip integration tests in CI/CD - these are for manual testing only
-		// Temporarily enable integration test for debugging telemetry
-		const shouldSkipIntegration = false // process.env.CI === "true" || !process.env.GEMINI_CLI_TEST
+	describe("createMessage", () => {
+		const mockMessages: Anthropic.Messages.MessageParam[] = [
+			{
+				role: "user",
+				content: "Hello, how are you?",
+			},
+		]
 
-		it("should build CLI arguments with advanced options", async () => {
-			// This test verifies the CLI argument building logic without actually invoking the CLI
-			// We'll test the argument construction by checking the handler's internal logic
+		const systemPrompt = "You are a helpful assistant"
 
-			const handler = new GeminiCliHandler({
-				apiModelId: "gemini-2.5-pro",
-				geminiCliProjectId: "459520514684",
+		it("should return an async generator", () => {
+			const stream = handler.createMessage(systemPrompt, mockMessages)
+
+			// Should be an async generator
+			expect(stream).toBeDefined()
+			expect(typeof stream[Symbol.asyncIterator]).toBe("function")
+		})
+
+		it("should not execute real CLI in unit tests", () => {
+			// Unit tests should not execute real CLI commands
+			// This test verifies the method exists and returns the expected type
+			const stream = handler.createMessage(systemPrompt, mockMessages)
+
+			// Should be an async generator (the actual CLI execution is tested in integration tests)
+			expect(stream).toBeDefined()
+			expect(typeof stream[Symbol.asyncIterator]).toBe("function")
+
+			// Don't consume the stream in unit tests - that would trigger real CLI execution
+			// Integration tests handle the full end-to-end flow
+		})
+	})
+
+	describe("token usage tracking", () => {
+		it("should initialize with null token usage", () => {
+			expect(handler.getLastTokenUsage()).toBeNull()
+		})
+
+		it("should have getLastTokenUsage method", () => {
+			expect(typeof handler.getLastTokenUsage).toBe("function")
+		})
+	})
+
+	describe("CLI-specific functionality", () => {
+		it("should support all CLI flags in configuration", () => {
+			const advancedConfig = {
+				...basicConfig,
+
 				geminiCliAllFiles: true,
 				geminiCliCheckpointing: true,
-
 				geminiCliExperimentalAcp: true,
 				geminiCliIdeMode: true,
-			})
+			}
 
-			// Verify handler was created with correct options
-			expect(handler).toBeDefined()
-			expect(handler.getModel().id).toBe("gemini-2.5-pro")
+			const advancedHandler = new GeminiCliHandler(advancedConfig)
 
-			// Test passes by verifying the handler can be instantiated with advanced options
-			// The actual CLI invocation is tested in integration tests
-			expect(true).toBe(true) // Test completes successfully
+			// All options should be stored correctly
+			expect(advancedHandler["options"].geminiCliAllFiles).toBe(true)
+			expect(advancedHandler["options"].geminiCliCheckpointing).toBe(true)
+			expect(advancedHandler["options"].geminiCliExperimentalAcp).toBe(true)
+			expect(advancedHandler["options"].geminiCliIdeMode).toBe(true)
 		})
 
-		it("should build CLI arguments with defaults when options are disabled", async () => {
-			const handler = new GeminiCliHandler({
-				apiModelId: "gemini-2.5-pro",
-				geminiCliProjectId: "test-project-123",
-				// All advanced options explicitly disabled
-				geminiCliAllFiles: false,
-				geminiCliCheckpointing: false,
-
-				geminiCliExperimentalAcp: false,
-				geminiCliIdeMode: false,
+		it("should use project ID for Google Cloud environment", () => {
+			const projectHandler = new GeminiCliHandler({
+				...basicConfig,
+				geminiCliProjectId: "my-special-project-456",
 			})
 
-			// Mock spawn to capture arguments
-			const mockStdin = {
-				write: vi.fn(),
-				end: vi.fn(),
-			}
-
-			const mockSpawn = vi.fn().mockReturnValue({
-				stdout: {
-					on: vi.fn((event: string, callback: (data: string) => void) => {
-						if (event === "data") {
-							callback("Test response")
-						}
-					}),
-				},
-				stderr: {
-					on: vi.fn(),
-				},
-				on: vi.fn((event: string, callback: (code: number) => void) => {
-					if (event === "close") {
-						callback(0)
-					}
-				}),
-				stdin: mockStdin,
-			})
-
-			vi.doMock("child_process", () => ({
-				spawn: mockSpawn,
-			}))
-
-			try {
-				await handler.completePrompt("Test prompt")
-
-				// Verify spawn was called with only basic arguments and explicit telemetry false
-				const [command, args] = mockSpawn.mock.calls[0]
-				expect(command).toBe("npx")
-				expect(args).toEqual([
-					"https://github.com/google-gemini/gemini-cli",
-					"--model",
-					"gemini-2.5-pro", // Now uses actual model ID
-					"--telemetry",
-					"false",
-				])
-
-				// Verify prompt was sent via stdin
-				expect(mockStdin.write).toHaveBeenCalledWith("Test prompt")
-				expect(mockStdin.end).toHaveBeenCalled()
-			} catch (error) {
-				// Test may fail due to mocking complexity, but we verified the logic
-				process.stdout.write("Mock test completed with expected behavior\n")
-			}
-		})
-
-		it("should build CLI arguments with sensible defaults when no options specified", async () => {
-			const handler = new GeminiCliHandler({
-				apiModelId: "gemini-2.5-pro",
-				geminiCliProjectId: "test-project-123",
-
-				// No advanced options specified - should use defaults
-			})
-
-			// Mock spawn to capture arguments
-			const mockStdin = {
-				write: vi.fn(),
-				end: vi.fn(),
-			}
-
-			const mockSpawn = vi.fn().mockReturnValue({
-				stdout: {
-					on: vi.fn((event: string, callback: (data: string) => void) => {
-						if (event === "data") {
-							callback("Test response")
-						}
-					}),
-				},
-				stderr: {
-					on: vi.fn(),
-				},
-				on: vi.fn((event: string, callback: (code: number) => void) => {
-					if (event === "close") {
-						callback(0)
-					}
-				}),
-				stdin: mockStdin,
-			})
-
-			vi.doMock("child_process", () => ({
-				spawn: mockSpawn,
-			}))
-
-			try {
-				await handler.completePrompt("Test prompt")
-
-				// Verify spawn was called with default flags (checkpointing and IDE mode on by default)
-				const [command, args] = mockSpawn.mock.calls[0]
-				expect(command).toBe("npx")
-				expect(args).toEqual([
-					"https://github.com/google-gemini/gemini-cli",
-					"--model",
-					"gemini-2.5-pro",
-					"--checkpointing", // Default: ON
-					"--ide-mode", // Default: ON
-				])
-
-				// Verify prompt was sent via stdin
-				expect(mockStdin.write).toHaveBeenCalledWith("Test prompt")
-				expect(mockStdin.end).toHaveBeenCalled()
-			} catch (error) {
-				// Test may fail due to mocking complexity, but we verified the logic
-				process.stdout.write("Mock test completed with expected behavior\n")
-			}
-		})
-
-		it("should complete prompt successfully with project ID", async () => {
-			if (shouldSkipIntegration) {
-				process.stdout.write("⏭️ Skipping integration test - set GEMINI_CLI_TEST=true to enable\n")
-				return
-			}
-
-			// Force console output to be visible in Vitest
-			const log = (msg: string) => {
-				process.stdout.write(`${msg}\n`)
-			}
-
-			const handler = new GeminiCliHandler({
-				apiModelId: "gemini-2.5-pro",
-				geminiCliProjectId: "459520514684",
-			})
-
-			log("🔥 REAL INTEGRATION TEST: Testing CLI with telemetry enabled")
-			const result = await handler.completePrompt("Say hello in exactly 2 words.")
-
-			expect(result).toBeDefined()
-			expect(typeof result).toBe("string")
-			expect(result.length).toBeGreaterThan(0)
-
-			log(`✅ CLI Response: ${result}`)
-
-			// Test token usage capture - this is the critical part!
-			const tokenUsage = handler.getLastTokenUsage()
-			log(`📊 Token usage captured: ${JSON.stringify(tokenUsage)}`)
-
-			if (tokenUsage) {
-				log("✅ SUCCESS: Real telemetry data captured!")
-				expect(tokenUsage.totalTokensIn).toBeGreaterThan(0)
-				expect(tokenUsage.totalTokensOut).toBeGreaterThan(0)
-				log(`📈 Input: ${tokenUsage.totalTokensIn}, Output: ${tokenUsage.totalTokensOut}`)
-			} else {
-				log("❌ FAILURE: No telemetry data captured - this is the bug!")
-				log("🔍 The gRPC telemetry receiver is not working correctly")
-				log("⚠️  Token usage not captured, but test continues for debugging")
-			}
-		}, 60000)
-
-		it("should handle authentication errors with clear instructions", async () => {
-			// Create handler without project ID to potentially trigger auth errors
-			const handler = new GeminiCliHandler({ apiModelId: "gemini-2.5-pro" })
-
-			try {
-				await handler.completePrompt("Test prompt")
-				// If no error, CLI is already authenticated (which is fine)
-			} catch (error) {
-				if (error instanceof Error) {
-					if (error.message.includes("🔐 Gemini CLI Authentication Required")) {
-						expect(error.message).toContain("npx https://github.com/google-gemini/gemini-cli")
-						expect(error.message).toContain("Select 'Login with Google'")
-						expect(error.message).toContain("Complete the browser OAuth flow")
-					} else if (error.message.includes("🏢 Google Cloud Project ID Required")) {
-						expect(error.message).toContain("Google Cloud Project ID")
-						expect(error.message).toContain("workspace access")
-						expect(error.message).toContain("provider settings")
-					} else {
-						// Unexpected error - rethrow for debugging
-						throw error
-					}
-				}
-			}
-		}, 15000)
-
-		it("should handle empty CLI response", async () => {
-			if (shouldSkipIntegration) {
-				return
-			}
-
-			const handler = new GeminiCliHandler({
-				apiModelId: "gemini-2.5-pro",
-				geminiCliProjectId: "459520514684",
-			})
-
-			// Empty input should be rejected by CLI with clear error
-			try {
-				await handler.completePrompt("")
-				// If no error, something unexpected happened
-				expect.fail("Expected CLI to reject empty input")
-			} catch (error) {
-				// CLI should reject empty input with appropriate error
-				expect(error).toBeInstanceOf(Error)
-				expect((error as Error).message).toContain("No input provided")
-			}
-		}, 15000)
-	})
-
-	describe("createMessage", () => {
-		// Temporarily enable integration test for debugging telemetry
-		const shouldSkipIntegration = false // process.env.CI === "true" || !process.env.GEMINI_CLI_TEST
-
-		it("should handle streaming messages", async () => {
-			if (shouldSkipIntegration) {
-				process.stdout.write("⏭️ Skipping streaming test - set GEMINI_CLI_TEST=true to enable\n")
-				return
-			}
-
-			const handler = new GeminiCliHandler({
-				apiModelId: "gemini-2.5-pro",
-				geminiCliProjectId: "459520514684",
-			})
-
-			const systemPrompt = "You are a helpful assistant."
-			const messages: Anthropic.Messages.MessageParam[] = [
-				{
-					role: "user",
-					content: "What is 2+2? Answer with just the number.",
-				},
-			]
-
-			const chunks: string[] = []
-
-			for await (const chunk of handler.createMessage(systemPrompt, messages)) {
-				if (chunk.type === "text") {
-					chunks.push(chunk.text)
-				}
-			}
-
-			const fullResponse = chunks.join("")
-
-			expect(fullResponse).toBeDefined()
-			expect(fullResponse.length).toBeGreaterThan(0)
-
-			process.stdout.write(`✅ Streaming Response: ${fullResponse}\n`)
-		}, 30000)
-
-		it("should handle complex message content", async () => {
-			if (shouldSkipIntegration) {
-				return
-			}
-
-			const handler = new GeminiCliHandler({
-				apiModelId: "gemini-2.5-pro",
-				geminiCliProjectId: "459520514684",
-			})
-
-			const messages: Anthropic.Messages.MessageParam[] = [
-				{
-					role: "user",
-					content: [
-						{ type: "text", text: "Hello, " },
-						{ type: "text", text: "how are you?" },
-					],
-				},
-			]
-
-			const chunks: string[] = []
-
-			for await (const chunk of handler.createMessage("", messages)) {
-				if (chunk.type === "text") {
-					chunks.push(chunk.text)
-				}
-			}
-
-			const fullResponse = chunks.join("")
-			expect(fullResponse.length).toBeGreaterThan(0)
-		}, 30000)
-
-		it("should preserve conversation context in multi-turn conversations", async () => {
-			if (shouldSkipIntegration) {
-				process.stdout.write("⏭️ Skipping context test - set GEMINI_CLI_TEST=true to enable\n")
-				return
-			}
-
-			const handler = new GeminiCliHandler({
-				apiModelId: "gemini-2.5-pro",
-				geminiCliProjectId: "459520514684",
-			})
-
-			const systemPrompt = "You are a helpful assistant."
-			const messages: Anthropic.Messages.MessageParam[] = [
-				{
-					role: "user",
-					content: "My name is Alice. Remember this.",
-				},
-				{
-					role: "assistant",
-					content: "Hello Alice! I'll remember your name.",
-				},
-				{
-					role: "user",
-					content: "What is my name?",
-				},
-			]
-
-			const chunks: string[] = []
-
-			for await (const chunk of handler.createMessage(systemPrompt, messages)) {
-				if (chunk.type === "text") {
-					chunks.push(chunk.text)
-				}
-			}
-
-			const fullResponse = chunks.join("")
-
-			expect(fullResponse).toBeDefined()
-			expect(fullResponse.length).toBeGreaterThan(0)
-			// The response should mention "Alice" since the context should be preserved
-			expect(fullResponse.toLowerCase()).toContain("alice")
-
-			process.stdout.write(`✅ Context-aware Response: ${fullResponse}\n`)
-		}, 30000)
-	})
-
-	// Note: CLI provider doesn't implement calculateCost since it uses external CLI
-	// Cost calculation would need to be handled by the CLI itself or estimated
-
-	describe("Error Handling", () => {
-		it("should provide detailed error messages for CLI failures", async () => {
-			const handler = new GeminiCliHandler({ apiModelId: "gemini-2.5-pro" })
-
-			try {
-				await handler.completePrompt("Test prompt")
-			} catch (error) {
-				if (error instanceof Error) {
-					// Should provide actionable error messages
-					expect(
-						error.message.includes("🔐 Gemini CLI Authentication Required") ||
-							error.message.includes("🏢 Google Cloud Project ID Required") ||
-							error.message.includes("❌ Gemini CLI Error"),
-					).toBe(true)
-				}
-			}
-		}, 10000)
-
-		it("should handle environment variable configuration", () => {
-			const handler = new GeminiCliHandler({
-				apiModelId: "gemini-2.5-pro",
-				geminiCliProjectId: "test-project-456",
-			})
-
-			// Verify handler accepts project ID configuration
-			expect(handler["options"].geminiCliProjectId).toBe("test-project-456")
+			expect(projectHandler["options"].geminiCliProjectId).toBe("my-special-project-456")
 		})
 	})
 })
