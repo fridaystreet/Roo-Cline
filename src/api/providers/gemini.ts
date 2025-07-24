@@ -18,6 +18,7 @@ import { getModelParams } from "../transform/model-params"
 
 import type { SingleCompletionHandler, ApiHandlerCreateMessageMetadata } from "../index"
 import { BaseProvider } from "./base-provider"
+import { GeminiCodeAssistHandler } from "./gemini-code-assist"
 
 type GeminiHandlerOptions = ApiHandlerOptions & {
 	isVertex?: boolean
@@ -26,13 +27,25 @@ type GeminiHandlerOptions = ApiHandlerOptions & {
 export class GeminiHandler extends BaseProvider implements SingleCompletionHandler {
 	protected options: ApiHandlerOptions
 
-	private client: GoogleGenAI
+	private client?: GoogleGenAI
+	private codeAssistHandler?: GeminiCodeAssistHandler
 
 	constructor({ isVertex, ...options }: GeminiHandlerOptions) {
 		super()
 
 		this.options = options
 
+		// Initialize Code Assist handler if enabled
+		if (this.options.geminiUseCodeAssist && this.options.geminiCodeAssistProjectId) {
+			this.codeAssistHandler = new GeminiCodeAssistHandler({
+				...options,
+				geminiCliProjectId: this.options.geminiCodeAssistProjectId,
+			})
+			// Don't initialize regular Gemini client when using Code Assist
+			return
+		}
+
+		// Only initialize regular Gemini client when not using Code Assist
 		const project = this.options.vertexProjectId ?? "not-provided"
 		const location = this.options.vertexRegion ?? "not-provided"
 		const apiKey = this.options.geminiApiKey ?? "not-provided"
@@ -63,6 +76,12 @@ export class GeminiHandler extends BaseProvider implements SingleCompletionHandl
 		messages: Anthropic.Messages.MessageParam[],
 		metadata?: ApiHandlerCreateMessageMetadata,
 	): ApiStream {
+		// Delegate to Code Assist handler if enabled
+		if (this.codeAssistHandler) {
+			yield* this.codeAssistHandler.createMessage(systemInstruction, messages, metadata)
+			return
+		}
+
 		const { id: model, info, reasoning: thinkingConfig, maxTokens } = this.getModel()
 
 		const contents = messages.map(convertAnthropicMessageToGemini)
@@ -76,6 +95,10 @@ export class GeminiHandler extends BaseProvider implements SingleCompletionHandl
 		}
 
 		const params: GenerateContentParameters = { model, contents, config }
+
+		if (!this.client) {
+			throw new Error("Gemini client not initialized")
+		}
 
 		const result = await this.client.models.generateContentStream(params)
 
@@ -143,8 +166,17 @@ export class GeminiHandler extends BaseProvider implements SingleCompletionHandl
 	}
 
 	async completePrompt(prompt: string): Promise<string> {
+		// Delegate to Code Assist handler if enabled
+		if (this.codeAssistHandler) {
+			return this.codeAssistHandler.completePrompt(prompt)
+		}
+
 		try {
 			const { id: model } = this.getModel()
+
+			if (!this.client) {
+				throw new Error("Gemini client not initialized")
+			}
 
 			const result = await this.client.models.generateContent({
 				model,
@@ -168,8 +200,17 @@ export class GeminiHandler extends BaseProvider implements SingleCompletionHandl
 	}
 
 	override async countTokens(content: Array<Anthropic.Messages.ContentBlockParam>): Promise<number> {
+		// Delegate to Code Assist handler if enabled
+		if (this.codeAssistHandler) {
+			return this.codeAssistHandler.countTokens(content)
+		}
+
 		try {
 			const { id: model } = this.getModel()
+
+			if (!this.client) {
+				throw new Error("Gemini client not initialized")
+			}
 
 			const response = await this.client.models.countTokens({
 				model,

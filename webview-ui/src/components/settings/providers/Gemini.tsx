@@ -34,44 +34,74 @@ export const Gemini = ({ apiConfiguration, setApiConfigurationField }: GeminiPro
 
 	return (
 		<>
-			<VSCodeTextField
-				value={apiConfiguration?.geminiApiKey || ""}
-				type="password"
-				onInput={handleInputChange("geminiApiKey")}
-				placeholder={t("settings:placeholders.apiKey")}
-				className="w-full">
-				<label className="block font-medium mb-1">{t("settings:providers.geminiApiKey")}</label>
-			</VSCodeTextField>
-			<div className="text-sm text-vscode-descriptionForeground -mt-2">
-				{t("settings:providers.apiKeyStorageNotice")}
-			</div>
-			{!apiConfiguration?.geminiApiKey && (
-				<VSCodeButtonLink href="https://ai.google.dev/" appearance="secondary">
-					{t("settings:providers.getGeminiApiKey")}
-				</VSCodeButtonLink>
-			)}
 			<div>
 				<Checkbox
-					checked={googleGeminiBaseUrlSelected}
+					checked={!!apiConfiguration?.geminiUseCodeAssist}
 					onChange={(checked: boolean) => {
-						setGoogleGeminiBaseUrlSelected(checked)
-
-						if (!checked) {
-							setApiConfigurationField("googleGeminiBaseUrl", "")
+						setApiConfigurationField("geminiUseCodeAssist", checked)
+						// Clear API key when switching to Code Assist
+						if (checked) {
+							setApiConfigurationField("geminiApiKey", "")
 						}
 					}}>
-					{t("settings:providers.useCustomBaseUrl")}
+					Use Code Assist login
 				</Checkbox>
-				{googleGeminiBaseUrlSelected && (
+				{apiConfiguration?.geminiUseCodeAssist && (
 					<VSCodeTextField
-						value={apiConfiguration?.googleGeminiBaseUrl || ""}
-						type="url"
-						onInput={handleInputChange("googleGeminiBaseUrl")}
-						placeholder={t("settings:defaults.geminiUrl")}
-						className="w-full mt-1"
-					/>
+						value={apiConfiguration?.geminiCodeAssistProjectId || ""}
+						type="text"
+						onInput={handleInputChange("geminiCodeAssistProjectId")}
+						placeholder="Google Cloud Project ID"
+						className="w-full mt-1">
+						<label className="block font-medium mb-1">Code Assist Project ID</label>
+					</VSCodeTextField>
 				)}
 			</div>
+			{!apiConfiguration?.geminiUseCodeAssist && (
+				<>
+					<VSCodeTextField
+						value={apiConfiguration?.geminiApiKey || ""}
+						type="password"
+						onInput={handleInputChange("geminiApiKey")}
+						placeholder={t("settings:placeholders.apiKey")}
+						className="w-full">
+						<label className="block font-medium mb-1">{t("settings:providers.geminiApiKey")}</label>
+					</VSCodeTextField>
+					<div className="text-sm text-vscode-descriptionForeground -mt-2">
+						{t("settings:providers.apiKeyStorageNotice")}
+					</div>
+					{!apiConfiguration?.geminiApiKey && (
+						<VSCodeButtonLink href="https://ai.google.dev/" appearance="secondary">
+							{t("settings:providers.getGeminiApiKey")}
+						</VSCodeButtonLink>
+					)}
+				</>
+			)}
+			{/* Only show custom base URL when NOT using Code Assist */}
+			{!apiConfiguration?.geminiUseCodeAssist && (
+				<div>
+					<Checkbox
+						checked={googleGeminiBaseUrlSelected}
+						onChange={(checked: boolean) => {
+							setGoogleGeminiBaseUrlSelected(checked)
+
+							if (!checked) {
+								setApiConfigurationField("googleGeminiBaseUrl", "")
+							}
+						}}>
+						{t("settings:providers.useCustomBaseUrl")}
+					</Checkbox>
+					{googleGeminiBaseUrlSelected && (
+						<VSCodeTextField
+							value={apiConfiguration?.googleGeminiBaseUrl || ""}
+							type="url"
+							onInput={handleInputChange("googleGeminiBaseUrl")}
+							placeholder={t("settings:defaults.geminiUrl")}
+							className="w-full mt-1"
+						/>
+					)}
+				</div>
+			)}
 		</>
 	)
 }

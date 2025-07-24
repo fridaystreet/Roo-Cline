@@ -167,6 +167,8 @@ const lmStudioSchema = baseProviderSettingsSchema.extend({
 const geminiSchema = apiModelIdProviderModelSchema.extend({
 	geminiApiKey: z.string().optional(),
 	googleGeminiBaseUrl: z.string().optional(),
+	geminiUseCodeAssist: z.boolean().optional(),
+	geminiCodeAssistProjectId: z.string().optional(),
 })
 
 const geminiCliSchema = baseProviderSettingsSchema.extend({

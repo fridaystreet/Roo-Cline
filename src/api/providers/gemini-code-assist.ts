@@ -87,7 +87,6 @@ export class GeminiCodeAssistHandler extends BaseProvider implements SingleCompl
 
 			// The server will convert this to CAGenerateContentRequest format internally
 			const result = await server.generateContentStream(params)
-
 			let lastUsageMetadata: GenerateContentResponseUsageMetadata | undefined
 
 			for await (const chunk of result) {
@@ -133,7 +132,7 @@ export class GeminiCodeAssistHandler extends BaseProvider implements SingleCompl
 					cacheReadTokens,
 					reasoningTokens,
 					// Code Assist uses quota-based pricing, not per-token billing
-					totalCost: undefined,
+					totalCost: 0,
 				}
 			}
 		} catch (error) {
