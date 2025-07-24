@@ -81,7 +81,7 @@ describe("VertexHandler", () => {
 	describe("completePrompt", () => {
 		it("should complete prompt successfully for Gemini", async () => {
 			// Mock the response with text property
-			;(handler["client"].models.generateContent as any).mockResolvedValue({
+			;(handler["client"]!.models.generateContent as any).mockResolvedValue({
 				text: "Test Gemini response",
 			})
 
@@ -89,7 +89,7 @@ describe("VertexHandler", () => {
 			expect(result).toBe("Test Gemini response")
 
 			// Verify the call to generateContent
-			expect(handler["client"].models.generateContent).toHaveBeenCalledWith(
+			expect(handler["client"]!.models.generateContent).toHaveBeenCalledWith(
 				expect.objectContaining({
 					model: expect.any(String),
 					contents: [{ role: "user", parts: [{ text: "Test prompt" }] }],
@@ -102,7 +102,7 @@ describe("VertexHandler", () => {
 
 		it("should handle API errors for Gemini", async () => {
 			const mockError = new Error("Vertex API error")
-			;(handler["client"].models.generateContent as any).mockRejectedValue(mockError)
+			;(handler["client"]!.models.generateContent as any).mockRejectedValue(mockError)
 
 			await expect(handler.completePrompt("Test prompt")).rejects.toThrow(
 				"Gemini completion error: Vertex API error",
@@ -111,7 +111,7 @@ describe("VertexHandler", () => {
 
 		it("should handle empty response for Gemini", async () => {
 			// Mock the response with empty text
-			;(handler["client"].models.generateContent as any).mockResolvedValue({
+			;(handler["client"]!.models.generateContent as any).mockResolvedValue({
 				text: "",
 			})
 

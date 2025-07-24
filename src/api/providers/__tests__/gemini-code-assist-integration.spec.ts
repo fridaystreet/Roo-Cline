@@ -11,7 +11,7 @@ const TEST_TIMEOUT = 30000 // 30 seconds for real API calls
 // Integration tests - these require real authentication and should be run separately
 describe("GeminiCodeAssistHandler Integration Tests", () => {
 	// Skip integration tests by default - they require real authentication
-	const runIntegrationTests = process.env.RUN_INTEGRATION_TESTS === "true"
+	const runIntegrationTests = process.env.RUN_INTEGRATION_TESTS
 	const projectId = process.env.GOOGLE_CLOUD_PROJECT
 
 	if (!runIntegrationTests) {

@@ -87,7 +87,6 @@ export function Features() {
 			y: 0,
 			transition: {
 				duration: 0.6,
-				ease: [0.21, 0.45, 0.27, 0.9],
 			},
 		},
 	}
@@ -100,7 +99,6 @@ export function Features() {
 			opacity: 1,
 			transition: {
 				duration: 1.2,
-				ease: "easeOut",
 			},
 		},
 	}
