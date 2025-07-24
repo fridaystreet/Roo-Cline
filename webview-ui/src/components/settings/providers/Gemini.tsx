@@ -47,14 +47,40 @@ export const Gemini = ({ apiConfiguration, setApiConfigurationField }: GeminiPro
 					Use Code Assist login
 				</Checkbox>
 				{apiConfiguration?.geminiUseCodeAssist && (
-					<VSCodeTextField
-						value={apiConfiguration?.geminiCodeAssistProjectId || ""}
-						type="text"
-						onInput={handleInputChange("geminiCodeAssistProjectId")}
-						placeholder="Google Cloud Project ID"
-						className="w-full mt-1">
-						<label className="block font-medium mb-1">Code Assist Project ID</label>
-					</VSCodeTextField>
+					<>
+						<VSCodeTextField
+							value={apiConfiguration?.geminiCodeAssistProjectId || ""}
+							type="text"
+							onInput={handleInputChange("geminiCodeAssistProjectId")}
+							placeholder="Google Cloud Project ID"
+							className="w-full mt-1">
+							<label className="block font-medium mb-1">Code Assist Project ID</label>
+						</VSCodeTextField>
+						<div className="mt-4 p-3 bg-vscode-textBlockQuote-background border-l-4 border-vscode-textBlockQuote-border">
+							<div className="text-sm font-medium mb-2">Authentication</div>
+							<div className="text-sm text-vscode-descriptionForeground mb-3">
+								The Gemini CLI uses Google OAuth authentication. When you send your first message, Roo
+								Code will automatically open your browser to complete the Google login process. Your
+								credentials will be saved for future use.
+								<br />
+								If the browser doesn&apos;t open automatically, run{" "}
+								<code>npx https://github.com/google-gemini/gemini-cli</code> in your terminal and select
+								option 1 to login.
+							</div>
+							<div className="text-sm text-vscode-descriptionForeground">
+								CodeAssist pricing is based on the number of tokens used. You can find the pricing
+								details <a href="https://cloud.google.com/gemini/pricing">here</a>.
+							</div>
+						</div>
+
+						<div className="mt-3">
+							<VSCodeButtonLink
+								href="https://console.cloud.google.com/projectselector2/home/dashboard"
+								appearance="secondary">
+								Open Google Web Console
+							</VSCodeButtonLink>
+						</div>
+					</>
 				)}
 			</div>
 			{!apiConfiguration?.geminiUseCodeAssist && (
