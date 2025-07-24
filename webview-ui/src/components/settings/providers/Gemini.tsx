@@ -67,18 +67,12 @@ export const Gemini = ({ apiConfiguration, setApiConfigurationField }: GeminiPro
 								<code>npx https://github.com/google-gemini/gemini-cli</code> in your terminal and select
 								option 1 to login.
 							</div>
-							<div className="text-sm text-vscode-descriptionForeground">
-								CodeAssist pricing is based on the number of tokens used. You can find the pricing
-								details <a href="https://cloud.google.com/gemini/pricing">here</a>.
+							<div className="text-sm font-medium mb-2">Pricing</div>
+							<div className="text-sm text-vscode-descriptionForeground mb-3">
+								Model pricing shown below the model selection does not apply to CodeAssist. CodeAssist
+								pricing is based on the number of tokens used. You can find the pricing details{" "}
+								<a href="https://cloud.google.com/gemini/pricing">here</a>.
 							</div>
-						</div>
-
-						<div className="mt-3">
-							<VSCodeButtonLink
-								href="https://console.cloud.google.com/projectselector2/home/dashboard"
-								appearance="secondary">
-								Open Google Web Console
-							</VSCodeButtonLink>
 						</div>
 					</>
 				)}
