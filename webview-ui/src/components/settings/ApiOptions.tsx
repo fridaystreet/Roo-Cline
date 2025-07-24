@@ -57,7 +57,6 @@ import {
 	ClaudeCode,
 	DeepSeek,
 	Gemini,
-	GeminiCli,
 	Glama,
 	Groq,
 	HuggingFace,
@@ -290,7 +289,6 @@ const ApiOptions = ({
 				"claude-code": { field: "apiModelId", default: claudeCodeDefaultModelId },
 				"openai-native": { field: "apiModelId", default: openAiNativeDefaultModelId },
 				gemini: { field: "apiModelId", default: geminiDefaultModelId },
-				"gemini-cli": { field: "geminiCliModelId", default: geminiDefaultModelId },
 				deepseek: { field: "apiModelId", default: deepSeekDefaultModelId },
 				moonshot: { field: "apiModelId", default: moonshotDefaultModelId },
 				mistral: { field: "apiModelId", default: mistralDefaultModelId },
@@ -453,15 +451,6 @@ const ApiOptions = ({
 				<Gemini apiConfiguration={apiConfiguration} setApiConfigurationField={setApiConfigurationField} />
 			)}
 
-			{selectedProvider === "gemini-cli" && (
-				<GeminiCli
-					apiConfiguration={apiConfiguration}
-					setApiConfigurationField={setApiConfigurationField}
-					organizationAllowList={organizationAllowList}
-					modelValidationError={modelValidationError}
-				/>
-			)}
-
 			{selectedProvider === "openai" && (
 				<OpenAICompatible
 					apiConfiguration={apiConfiguration}
@@ -527,7 +516,7 @@ const ApiOptions = ({
 				</>
 			)}
 
-			{selectedProviderModels.length > 0 && selectedProvider !== "gemini-cli" && (
+			{selectedProviderModels.length > 0 && (
 				<>
 					<div>
 						<label className="block font-medium mb-1">{t("settings:providers.model")}</label>
@@ -574,14 +563,12 @@ const ApiOptions = ({
 				</>
 			)}
 
-			{selectedProvider !== "gemini-cli" && (
-				<ThinkingBudget
-					key={`${selectedProvider}-${selectedModelId}`}
-					apiConfiguration={apiConfiguration}
-					setApiConfigurationField={setApiConfigurationField}
-					modelInfo={selectedModelInfo}
-				/>
-			)}
+			<ThinkingBudget
+				key={`${selectedProvider}-${selectedModelId}`}
+				apiConfiguration={apiConfiguration}
+				setApiConfigurationField={setApiConfigurationField}
+				modelInfo={selectedModelInfo}
+			/>
 
 			{!fromWelcomeView && (
 				<Collapsible open={isAdvancedSettingsOpen} onOpenChange={setIsAdvancedSettingsOpen}>
@@ -599,19 +586,15 @@ const ApiOptions = ({
 							fuzzyMatchThreshold={apiConfiguration.fuzzyMatchThreshold}
 							onChange={(field, value) => setApiConfigurationField(field, value)}
 						/>
-						{selectedProvider !== "gemini-cli" && (
-							<TemperatureControl
-								value={apiConfiguration.modelTemperature}
-								onChange={handleInputChange("modelTemperature", noTransform)}
-								maxValue={2}
-							/>
-						)}
-						{selectedProvider !== "gemini-cli" && (
-							<RateLimitSecondsControl
-								value={apiConfiguration.rateLimitSeconds || 0}
-								onChange={(value) => setApiConfigurationField("rateLimitSeconds", value)}
-							/>
-						)}
+						<TemperatureControl
+							value={apiConfiguration.modelTemperature}
+							onChange={handleInputChange("modelTemperature", noTransform)}
+							maxValue={2}
+						/>
+						<RateLimitSecondsControl
+							value={apiConfiguration.rateLimitSeconds || 0}
+							onChange={(value) => setApiConfigurationField("rateLimitSeconds", value)}
+						/>
 						<ConsecutiveMistakeLimitControl
 							value={
 								apiConfiguration.consecutiveMistakeLimit !== undefined

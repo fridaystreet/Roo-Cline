@@ -15,7 +15,6 @@ import {
 	OllamaHandler,
 	LmStudioHandler,
 	GeminiHandler,
-	GeminiCliHandler,
 	OpenAiNativeHandler,
 	DeepSeekHandler,
 	MoonshotHandler,
@@ -72,7 +71,6 @@ const providerMap: Record<string, new (options: any) => ApiHandler> = {
 	ollama: OllamaHandler,
 	lmstudio: LmStudioHandler,
 	gemini: GeminiHandler,
-	"gemini-cli": GeminiCliHandler,
 	"openai-native": OpenAiNativeHandler,
 	deepseek: DeepSeekHandler,
 	"vscode-lm": VsCodeLmHandler,
@@ -102,8 +100,6 @@ export function buildApiHandler(configuration: ProviderSettings): ApiHandler {
 			return new LmStudioHandler(options)
 		case "gemini":
 			return new GeminiHandler(options)
-		case "gemini-cli":
-			return new GeminiCliHandler(options)
 		case "openai-native":
 			return new OpenAiNativeHandler(options)
 		case "deepseek":

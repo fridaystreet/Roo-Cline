@@ -47,32 +47,31 @@ export const ModelInfoView = ({
 				{modelInfo.maxTokens?.toLocaleString()} tokens
 			</>
 		),
-		// Hide pricing information for gemini-cli since it uses Code Assist quotas, not per-token billing
-		apiProvider !== "gemini-cli" && modelInfo?.inputPrice !== undefined && modelInfo.inputPrice > 0 && (
+		modelInfo?.inputPrice !== undefined && modelInfo.inputPrice > 0 && (
 			<>
 				<span className="font-medium">{t("settings:modelInfo.inputPrice")}:</span>{" "}
 				{formatPrice(modelInfo.inputPrice)} / 1M tokens
 			</>
 		),
-		apiProvider !== "gemini-cli" && modelInfo?.outputPrice !== undefined && modelInfo.outputPrice > 0 && (
+		modelInfo?.outputPrice !== undefined && modelInfo.outputPrice > 0 && (
 			<>
 				<span className="font-medium">{t("settings:modelInfo.outputPrice")}:</span>{" "}
 				{formatPrice(modelInfo.outputPrice)} / 1M tokens
 			</>
 		),
-		apiProvider !== "gemini-cli" && modelInfo?.supportsPromptCache && modelInfo.cacheReadsPrice && (
+		modelInfo?.supportsPromptCache && modelInfo.cacheReadsPrice && (
 			<>
 				<span className="font-medium">{t("settings:modelInfo.cacheReadsPrice")}:</span>{" "}
 				{formatPrice(modelInfo.cacheReadsPrice || 0)} / 1M tokens
 			</>
 		),
-		apiProvider !== "gemini-cli" && modelInfo?.supportsPromptCache && modelInfo.cacheWritesPrice && (
+		modelInfo?.supportsPromptCache && modelInfo.cacheWritesPrice && (
 			<>
 				<span className="font-medium">{t("settings:modelInfo.cacheWritesPrice")}:</span>{" "}
 				{formatPrice(modelInfo.cacheWritesPrice || 0)} / 1M tokens
 			</>
 		),
-		(apiProvider === "gemini" || apiProvider === "gemini-cli") && (
+		apiProvider === "gemini" && (
 			<span className="italic">
 				{selectedModelId.includes("pro-preview")
 					? t("settings:modelInfo.gemini.billingEstimate")

@@ -169,11 +169,6 @@ function getSelectedModel({
 			const info = geminiModels[id as keyof typeof geminiModels]
 			return { id, info }
 		}
-		case "gemini-cli": {
-			const id = apiConfiguration.geminiCliModelId ?? "gemini-2.5-pro"
-			const info = geminiModels[id as keyof typeof geminiModels]
-			return { id, info }
-		}
 		case "deepseek": {
 			const id = apiConfiguration.apiModelId ?? deepSeekDefaultModelId
 			const info = deepSeekModels[id as keyof typeof deepSeekModels]
@@ -233,7 +228,7 @@ function getSelectedModel({
 		// case "human-relay":
 		// case "fake-ai":
 		default: {
-			provider satisfies "anthropic" | "gemini-cli" | "human-relay" | "fake-ai"
+			provider satisfies "anthropic" | "human-relay" | "fake-ai"
 			const id = apiConfiguration.apiModelId ?? anthropicDefaultModelId
 			const info = anthropicModels[id as keyof typeof anthropicModels]
 			return { id, info }

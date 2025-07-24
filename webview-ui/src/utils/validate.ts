@@ -162,8 +162,6 @@ function getModelIdForProvider(apiConfiguration: ProviderSettings, provider: str
 			return apiConfiguration.requestyModelId
 		case "litellm":
 			return apiConfiguration.litellmModelId
-		case "gemini-cli":
-			return apiConfiguration.geminiCliModelId
 		case "openai":
 			return apiConfiguration.openAiModelId
 		case "ollama":
