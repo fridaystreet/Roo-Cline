@@ -2254,6 +2254,21 @@ export const webviewMessageHandler = async (
 			break
 		}
 
+		case "clearCodeAssistCredentials": {
+			try {
+				// Import the clearCachedCredentialFile function dynamically
+				const { clearCachedCredentialFile } = await import("../../api/providers/gemini-code-assist-oauth.js")
+				await clearCachedCredentialFile()
+				provider.log("Code Assist credentials cleared successfully")
+			} catch (error) {
+				provider.log(
+					`Failed to clear Code Assist credentials: ${error instanceof Error ? error.message : String(error)}`,
+				)
+				throw error // Re-throw so the UI can handle the error
+			}
+			break
+		}
+
 		case "switchTab": {
 			if (message.tab) {
 				// Capture tab shown event for all switchTab messages (which are user-initiated)

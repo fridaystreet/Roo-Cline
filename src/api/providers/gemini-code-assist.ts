@@ -7,6 +7,7 @@ import type {
 	GenerateContentResponseUsageMetadata,
 	GenerateContentParameters,
 	GenerateContentConfig,
+	GenerateContentResponse,
 } from "@google/genai"
 
 import { type ModelInfo, type GeminiModelId, geminiDefaultModelId, geminiModels } from "@roo-code/types"
@@ -35,25 +36,42 @@ export class GeminiCodeAssistHandler extends BaseProvider implements SingleCompl
 		}
 
 		try {
-			// Get the model from options
-			const { id: modelId } = this.getModel()
-
 			// Use taskId as session ID for per-chat token tracking, fallback to CLI default if not available
 			// Create a minimal config object for OAuth
 			const config = new MinimalConfig({
 				sessionId: taskId || generateSessionId(),
 			})
 
-			// Set the project ID environment variable for CLI authentication
-			process.env.GOOGLE_CLOUD_PROJECT = this.options.geminiCliProjectId
+			// Determine the actual project ID to use
+			const projectId =
+				this.options.geminiCliProjectId && this.options.geminiCliProjectId.trim()
+					? this.options.geminiCliProjectId.trim()
+					: ""
+
+			console.log(
+				`codeassist: Project ID handling - raw: '${this.options.geminiCliProjectId}', processed: '${projectId}'`,
+			)
+
+			// Set the project ID environment variable for CLI authentication if provided
+			if (projectId) {
+				process.env.GOOGLE_CLOUD_PROJECT = projectId
+				console.log(`codeassist: Set GOOGLE_CLOUD_PROJECT to: ${projectId}`)
+			} else {
+				console.log(`codeassist: Using personal account (no project ID)`)
+				// Ensure environment variable is not set for personal accounts
+				delete process.env.GOOGLE_CLOUD_PROJECT
+			}
 
 			const oauthClient = await getOauthClient(AuthType.LOGIN_WITH_GOOGLE, config)
 			this.server = new CodeAssistServer(
 				oauthClient,
-				this.options.geminiCliProjectId,
+				// Pass undefined for personal accounts, only pass actual project ID for organizational accounts
+				projectId,
 				undefined,
 				config.getSessionId(),
 			)
+
+			console.log(`codeassist: CodeAssistServer created with projectId: ${projectId}`)
 
 			return this.server
 		} catch (error) {
@@ -66,75 +84,29 @@ export class GeminiCodeAssistHandler extends BaseProvider implements SingleCompl
 		messages: Anthropic.Messages.MessageParam[],
 		metadata?: ApiHandlerCreateMessageMetadata,
 	): ApiStream {
+		const { id: model, info, reasoning: thinkingConfig, maxTokens } = this.getModel()
+		const contents = messages.map(convertAnthropicMessageToGemini)
+
 		try {
-			const server = await this.getCodeAssistServer(metadata?.taskId)
-			const { id: model, info, reasoning: thinkingConfig, maxTokens } = this.getModel()
+			const result = await this.withOAuthRetry(async () => {
+				const server = await this.getCodeAssistServer(metadata?.taskId)
 
-			const contents = messages.map(convertAnthropicMessageToGemini)
-
-			// Format request to match CLI's GenerateContentParameters structure
-			const params = {
-				model,
-				contents,
-				config: {
-					systemInstruction: systemInstruction
-						? { role: "system", parts: [{ text: systemInstruction }] }
-						: undefined,
-					maxOutputTokens: this.options.modelMaxTokens ?? maxTokens ?? undefined,
-					temperature: this.options.modelTemperature ?? 0,
-				},
-			}
-
-			// The server will convert this to CAGenerateContentRequest format internally
-			const result = await server.generateContentStream(params)
-			let lastUsageMetadata: GenerateContentResponseUsageMetadata | undefined
-
-			for await (const chunk of result) {
-				// Process candidates and their parts to separate thoughts from content
-				if (chunk.candidates && chunk.candidates.length > 0) {
-					const candidate = chunk.candidates[0]
-					if (candidate.content && candidate.content.parts) {
-						for (const part of candidate.content.parts) {
-							if (part.thought) {
-								// This is a thinking/reasoning part
-								if (part.text) {
-									yield { type: "reasoning", text: part.text }
-								}
-							} else {
-								// This is regular content
-								if (part.text) {
-									yield { type: "text", text: part.text }
-								}
-							}
-						}
-					}
-				}
-				// Fallback to the original text property if no candidates structure
-				else if (chunk.text) {
-					yield { type: "text", text: chunk.text }
+				const params = {
+					model,
+					contents,
+					config: {
+						systemInstruction: systemInstruction
+							? { role: "system", parts: [{ text: systemInstruction }] }
+							: undefined,
+						maxOutputTokens: this.options.modelMaxTokens ?? maxTokens ?? undefined,
+						temperature: this.options.modelTemperature ?? 0,
+					},
 				}
 
-				if (chunk.usageMetadata) {
-					lastUsageMetadata = chunk.usageMetadata
-				}
-			}
+				return await server.generateContentStream(params)
+			})
 
-			if (lastUsageMetadata) {
-				const inputTokens = lastUsageMetadata.promptTokenCount ?? 0
-				const outputTokens = lastUsageMetadata.candidatesTokenCount ?? 0
-				const cacheReadTokens = lastUsageMetadata.cachedContentTokenCount
-				const reasoningTokens = lastUsageMetadata.thoughtsTokenCount
-
-				yield {
-					type: "usage",
-					inputTokens,
-					outputTokens,
-					cacheReadTokens,
-					reasoningTokens,
-					// Code Assist uses quota-based pricing, not per-token billing
-					totalCost: 0,
-				}
-			}
+			yield* this.processStreamingResponse(result)
 		} catch (error) {
 			throw new Error(`Code Assist API error: ${error}`)
 		}
@@ -153,24 +125,124 @@ export class GeminiCodeAssistHandler extends BaseProvider implements SingleCompl
 		return { id: id.endsWith(":thinking") ? id.replace(":thinking", "") : id, info, ...params }
 	}
 
-	async completePrompt(prompt: string): Promise<string> {
+	/**
+	 * Wrapper that handles OAuth authentication errors and retries
+	 */
+	private async withOAuthRetry<T>(operation: () => Promise<T>): Promise<T> {
 		try {
-			const server = await this.getCodeAssistServer()
-			const { id: model } = this.getModel()
+			return await operation()
+		} catch (error) {
+			// Debug: Log the exact error we received
+			process.stdout.write(`codeassist: ERROR CAUGHT - Type: ${typeof error}\n`)
+			process.stdout.write(`codeassist: ERROR CAUGHT - String: ${String(error)}\n`)
 
-			// Use proper CLI converter functions like in createMessage
+			// Check if this is a 403 authentication error
+			const errorMessage = error instanceof Error ? error.message : String(error)
+			process.stdout.write(`codeassist: Full error object: ${JSON.stringify(error, null, 2)}\n`)
+			process.stdout.write(`codeassist: Checking for 403 error in: ${errorMessage}\n`)
+
+			// Check for both 403 authentication errors AND 400 invalid resource errors (which can happen with personal accounts)
+			if (
+				/*errorMessage.includes('403') ||*/ errorMessage.includes("PERMISSION_DENIED") ||
+				errorMessage.includes("unregistered callers")
+			) {
+				// || errorMessage.includes('Invalid resource field value')) {
+				// Clear cached credentials and trigger re-authentication
+				process.stdout.write(
+					"codeassist: Authentication error detected, clearing cached credentials and triggering re-auth...\n",
+				)
+				try {
+					// Clear the cached credentials
+					const { clearCachedCredentialFile } = await import("./gemini-code-assist-oauth.js")
+					await clearCachedCredentialFile()
+
+					// Reset the server instance to force re-authentication
+					this.server = null
+
+					// Retry the operation with fresh authentication
+					return await operation()
+				} catch (retryError) {
+					throw new Error(
+						`Code Assist authentication failed. Please check your Google Cloud project ID and ensure you have access to Code Assist. Original error: ${errorMessage}`,
+					)
+				}
+			}
+
+			throw new Error(`Code Assist API error: ${errorMessage}`)
+		}
+	}
+
+	/**
+	 * Process streaming response chunks and yield appropriate types
+	 */
+	private async *processStreamingResponse(result: AsyncGenerator<GenerateContentResponse>): ApiStream {
+		let lastUsageMetadata: GenerateContentResponseUsageMetadata | undefined
+		process.stdout.write(`codeassist: Streaming response received\n${JSON.stringify(result, null, 2)}`)
+		for await (const chunk of result) {
+			// Process candidates and their parts to separate thoughts from content
+			if (chunk.candidates && chunk.candidates.length > 0) {
+				const candidate = chunk.candidates[0]
+				if (candidate.content && candidate.content.parts) {
+					for (const part of candidate.content.parts) {
+						if (part.thought) {
+							// This is a thinking/reasoning part
+							if (part.text) {
+								yield { type: "reasoning", text: part.text }
+							}
+						} else {
+							// This is regular content
+							if (part.text) {
+								yield { type: "text", text: part.text }
+							}
+						}
+					}
+				}
+			} else if (chunk.text) {
+				// Handle direct text chunks
+				yield { type: "text", text: chunk.text }
+			}
+
+			// Capture usage metadata
+			if (chunk.usageMetadata) {
+				lastUsageMetadata = chunk.usageMetadata
+			}
+		}
+
+		// Yield usage information if available
+		if (lastUsageMetadata) {
+			const inputTokens = lastUsageMetadata.promptTokenCount ?? 0
+			const outputTokens = lastUsageMetadata.candidatesTokenCount ?? 0
+			const cacheReadTokens = lastUsageMetadata.cachedContentTokenCount
+			const reasoningTokens = lastUsageMetadata.thoughtsTokenCount
+
+			yield {
+				type: "usage",
+				inputTokens,
+				outputTokens,
+				cacheReadTokens,
+				reasoningTokens,
+				// Code Assist uses quota-based pricing, not per-token billing
+				totalCost: 0,
+			}
+		}
+	}
+
+	async completePrompt(prompt: string): Promise<string> {
+		const { id: model } = this.getModel()
+
+		return this.withOAuthRetry(async () => {
+			const server = await this.getCodeAssistServer()
+
 			const result = await server.generateContent({
 				model,
-				contents: convertAnthropicContentToGemini([{ type: "text", text: prompt }]), // Convert string to proper format
+				contents: convertAnthropicContentToGemini([{ type: "text", text: prompt }]),
 				config: {
 					temperature: this.options.modelTemperature ?? 0,
 				},
 			})
 
 			return result.text ?? ""
-		} catch (error) {
-			throw new Error(`Code Assist completion error: ${error}`)
-		}
+		})
 	}
 
 	override async countTokens(content: Array<Anthropic.Messages.ContentBlockParam>): Promise<number> {

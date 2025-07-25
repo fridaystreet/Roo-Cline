@@ -6,6 +6,7 @@ import type { ProviderSettings } from "@roo-code/types"
 
 import { useAppTranslation } from "@src/i18n/TranslationContext"
 import { VSCodeButtonLink } from "@src/components/common/VSCodeButtonLink"
+import { vscode } from "@src/utils/vscode"
 
 import { inputEventTransform } from "../transforms"
 
@@ -54,7 +55,10 @@ export const Gemini = ({ apiConfiguration, setApiConfigurationField }: GeminiPro
 							onInput={handleInputChange("geminiCodeAssistProjectId")}
 							placeholder="Google Cloud Project ID"
 							className="w-full mt-1">
-							<label className="block font-medium mb-1">Code Assist Project ID</label>
+							<label className="block font-medium mb-1">
+								Code Assist Project ID (must be provided only works for standard and enterprise
+								accounts)
+							</label>
 						</VSCodeTextField>
 						<div className="mt-4 p-3 bg-vscode-textBlockQuote-background border-l-4 border-vscode-textBlockQuote-border">
 							<div className="text-sm font-medium mb-2">Authentication</div>
@@ -67,6 +71,26 @@ export const Gemini = ({ apiConfiguration, setApiConfigurationField }: GeminiPro
 								<code>npx https://github.com/google-gemini/gemini-cli</code> in your terminal and select
 								option 1 to login.
 							</div>
+							<VSCodeButtonLink
+								href="#"
+								appearance="secondary"
+								onClick={async () => {
+									try {
+										// Clear cached OAuth credentials
+										await vscode.postMessage({
+											type: "clearCodeAssistCredentials",
+										})
+										alert(
+											"Code Assist credentials cleared. You will need to re-authenticate on your next request.",
+										)
+									} catch (error) {
+										console.error("Failed to clear credentials:", error)
+										alert("Failed to clear credentials. Please try again.")
+									}
+								}}
+								className="mb-3">
+								Logout from Code Assist
+							</VSCodeButtonLink>
 							<div className="text-sm font-medium mb-2">Pricing</div>
 							<div className="text-sm text-vscode-descriptionForeground mb-3">
 								Model pricing shown below the model selection does not apply to CodeAssist. CodeAssist

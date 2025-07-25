@@ -15,7 +15,6 @@ import { promises as fs } from "fs"
 import { OAuth2Client, Credentials, Compute, CodeChallengeMethod } from "google-auth-library"
 import { AuthType, MinimalConfig } from "./gemini-code-assist-config.js"
 import { getErrorMessage } from "./gemini-code-assist-utils.js"
-import * as readline from "node:readline"
 
 //  OAuth Client ID used to initiate OAuth2Client class.
 const OAUTH_CLIENT_ID = "681255809395-oo8ft2oprdrnp9e3aqf6av3hmdib135j.apps.googleusercontent.com"
@@ -147,54 +146,6 @@ export async function getOauthClient(authType: AuthType, config: MinimalConfig):
 	}
 
 	return client
-}
-
-async function authWithUserCode(client: OAuth2Client): Promise<boolean> {
-	const redirectUri = "https://codeassist.google.com/authcode"
-	const codeVerifier = await client.generateCodeVerifierAsync()
-	const state = crypto.randomBytes(32).toString("hex")
-	const authUrl: string = client.generateAuthUrl({
-		redirect_uri: redirectUri,
-		access_type: "offline",
-		scope: OAUTH_SCOPE,
-		code_challenge_method: CodeChallengeMethod.S256,
-		code_challenge: codeVerifier.codeChallenge,
-		state,
-	})
-	console.log("Please visit the following URL to authorize the application:")
-	console.log("")
-	console.log(authUrl)
-	console.log("")
-
-	const code = await new Promise<string>((resolve) => {
-		const rl = readline.createInterface({
-			input: process.stdin,
-			output: process.stdout,
-		})
-		rl.question("Enter the authorization code: ", (code) => {
-			rl.close()
-			resolve(code.trim())
-		})
-	})
-
-	if (!code) {
-		console.error("Authorization code is required.")
-		return false
-	}
-
-	try {
-		const { tokens } = await client.getToken({
-			code,
-			codeVerifier: codeVerifier.codeVerifier,
-			redirect_uri: redirectUri,
-		})
-		client.setCredentials(tokens)
-		// Explicitly cache the tokens since setCredentials doesn't trigger 'tokens' event
-		await cacheCredentials(tokens)
-	} catch (_error) {
-		return false
-	}
-	return true
 }
 
 async function authWithWeb(client: OAuth2Client): Promise<OauthWebLogin> {

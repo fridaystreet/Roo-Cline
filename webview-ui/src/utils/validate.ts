@@ -72,9 +72,8 @@ function validateModelsAndKeysProvided(apiConfiguration: ProviderSettings): stri
 			if (!apiConfiguration.geminiUseCodeAssist && !apiConfiguration.geminiApiKey) {
 				return i18next.t("settings:validation.apiKey")
 			}
-			// When Code Assist is enabled, project ID is required
 			if (apiConfiguration.geminiUseCodeAssist && !apiConfiguration.geminiCodeAssistProjectId) {
-				return "You must provide a Google Cloud Project ID for Code Assist"
+				return i18next.t("settings:validation.geminiCodeAssistProjectId")
 			}
 			break
 		case "openai-native":
